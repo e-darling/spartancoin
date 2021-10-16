@@ -2,7 +2,7 @@
 Fake Module
 """
 
-a = 'a'
-b = 'b'
+a = "a"
+b = "b"
 
 c = a + b
