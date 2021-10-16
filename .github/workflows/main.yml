@@ -32,7 +32,7 @@ jobs:
         with:
           # File or directory to run mypy on
           path: .
-      - name: GitHub Action for pytest
+      - name: fast-pytest
         # You may pin to the exact commit or the version.
-        # uses: cclauss/GitHub-Action-for-pytest@5863d02de95f37516a732802fa6257dfdf93e54c
-        uses: cclauss/GitHub-Action-for-pytest@0.5.0
+        # uses: paolorechia/fast-pytest-github-action@3d3b1cccb10a42cc45ccd9a4865e194178c3fa4d
+        uses: paolorechia/fast-pytest-github-action@v1.0
