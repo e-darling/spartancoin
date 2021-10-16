@@ -36,7 +36,7 @@ jobs:
 #           path: .
       - name: pytest
         id: pytest
-        uses: paolorechia/fast-pytest-github-action@v1
+        uses: paolorechia/fast-pytest-github-action@v1.0
         with:
           pytest_args: '.'
           requirements_file: 'requirements.txt'
