@@ -24,15 +24,19 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-
-      - name: Mypy Check
-        # You may pin to the exact commit or the version.
-        # uses: jpetrucciani/mypy-check@e4de43b8ca2e83e7cc9caac4ecddcd2b8f947b7e
-        uses: jpetrucciani/mypy-check@0.910
+      - uses: actions/setup-python@v2
         with:
-          # File or directory to run mypy on
-          path: .
-      - name: fast-pytest
-        # You may pin to the exact commit or the version.
-        # uses: paolorechia/fast-pytest-github-action@3d3b1cccb10a42cc45ccd9a4865e194178c3fa4d
-        uses: paolorechia/fast-pytest-github-action@v1.0
+          python-version: '3.7.12'
+#       - name: Mypy Check
+#         # You may pin to the exact commit or the version.
+#         # uses: jpetrucciani/mypy-check@e4de43b8ca2e83e7cc9caac4ecddcd2b8f947b7e
+#         uses: jpetrucciani/mypy-check@0.910
+#         with:
+#           # File or directory to run mypy on
+#           path: .
+      - name: pytest
+        id: pytest
+        uses: paolorechia/fast-pytest-github-action@v1
+        with:
+          pytest_args: '.'
+          requirements_file: 'requirements.txt'
