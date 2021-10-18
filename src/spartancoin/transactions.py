@@ -80,3 +80,34 @@ class Tx:
                 encoded_public_key,
             ]
         )
+
+
+@dataclass
+class Rx:
+    """
+    An object representing a receiving block.
+
+    Receiver layout modified from https://en.bitcoin.it/wiki/Transaction#General_format_.28inside_a_block.29_of_each_output_of_a_transaction_-_Txout
+        Field                 | Size
+        ----------------------------------------------
+        value                 | 8 bytes
+        length of next field  | 1 to 9 bytes VarInt
+        Rx-PubKey             | <previous field> bytes
+    """
+
+    amount: int
+    recipient: ec.EllipticCurvePublicKey
+
+    def encode(self) -> bytes:
+        """Serialize the receiver"""
+        encoded_public_key = self.recipient.public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        return b"".join(
+            [
+                self.amount.to_bytes(8, byteorder="little"),
+                encode_varint(len(encoded_public_key)),
+                encoded_public_key,
+            ]
+        )
