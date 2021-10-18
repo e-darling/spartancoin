@@ -111,3 +111,48 @@ class Rx:
                 encoded_public_key,
             ]
         )
+
+
+@dataclass
+class Transaction:
+    """
+    A transaction that spends the entirety of the transmitted coins
+    to a collection of recipients.
+
+    From the whitepaper:
+        Although it would be possible to handle coins individually, it would be
+        unwieldy to make a separate transaction for every cent in a transfer.
+        To allow value to be split and combined, transactions contain multiple
+        inputs and outputs. Normally there will be either a single input from a
+        larger previous transaction or multiple inputs combining smaller amounts,
+        and at most two outputs: one for the payment, and one returning the
+        change, if any, back to the sender.
+
+    Sp, to spend only a part of a coin, a transaction is made from A to A and B,
+    where A receives the "unspent" amount and Bob receives the "spent" amount.
+
+    Transaction layout modified from https://en.bitcoin.it/wiki/Transaction#General_format_of_a_Bitcoin_transaction_.28inside_a_block.29
+        Field                             | Size
+        ---------------------------------------------
+        version number (not implemented)  | 4 bytes
+        witness flag (not implemented)    | 2 bytes
+        number of inputs                  | 1 to 9 bytes VarInt
+        list of inputs                    | varies
+        number of outputs                 | 1 to 9 bytes VarInt
+        list of outputs                   | varies
+        witnesses (not implemented)       | varies
+        lock time (not implemented)       | 4 bytes
+    """
+
+    txs: Collection[Tx]
+    rxs: Collection[Rx]
+
+    def encode(self) -> bytes:
+        """Serialize the transaction"""
+        ...
+        # return b"".join(
+        #     chain(
+        #         [tx.encode() for tx in self.txs],
+        #         [rx.encode() for rx in self.rxs],
+        #     )
+        # )
