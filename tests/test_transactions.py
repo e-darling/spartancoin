@@ -3,14 +3,22 @@ Unittest coins
 """
 
 import pytest
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from spartancoin.transactions import encode_varint
+from spartancoin.transactions import Tx, encode_varint
 
 
 @pytest.fixture(name="private_key")
 def fixture_private_key() -> ec.EllipticCurvePrivateKey:
-    """Return a random private key"""
-    return ec.generate_private_key(ec.SECP256K1())
+    """Return a repeatable private key"""
+    pem = (
+        b"-----BEGIN PRIVATE KEY-----\n"
+        b"MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgzzPf0DmqcJvV7ff1IGM/\n"
+        b"I5mNhcIGLn/LzSGJAkGsuCmhRANCAATPPY+kDUU0A/SyeNILrntRpyD8VjhYAWy6\n"
+        b"waA69eghC2WrWbaNchd8RwFNK2k4U4Sx1NfF+ndgWngPdYAXWtWu\n"
+        b"-----END PRIVATE KEY-----\n"
+    )
+    return serialization.load_pem_private_key(pem, None)
 
 
 @pytest.mark.parametrize(
@@ -41,3 +49,30 @@ def test_encode_varint_invalid(i: int) -> None:
     """Test variable-length integers are unsigned and can fit in 9 bytes."""
     with pytest.raises(ValueError):
         encode_varint(i)
+
+
+class TestTx:
+
+    @staticmethod
+    def test_genesis(private_key) -> None:
+        """Test the Tx class"""
+        coinbase = b"Genesis"
+        prev_tx_hash = bytearray(32)
+        prev_tx_hash[: len(coinbase)] = coinbase
+
+        observed = Tx(prev_tx_hash, -1, private_key).encode()
+
+        assert observed[:32] == prev_tx_hash
+        assert observed[32:36] == b'\xFF\xFF\xFF\xFF'
+
+    @staticmethod
+    def test_generic(private_key) -> None:
+        """Test the Tx class"""
+        tmp = b"not genesis"
+        prev_tx_hash = bytearray(32)
+        prev_tx_hash[: len(tmp)] = tmp
+
+        observed = Tx(prev_tx_hash, 1, private_key).encode()
+
+        assert observed[:32] == prev_tx_hash
+        assert observed[32:36] == b'\x01\x00\x00\x00'
