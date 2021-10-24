@@ -146,9 +146,12 @@ class Transaction:
     def encode(self) -> bytes:
         """Serialize the transaction"""
         ...
-        # return b"".join(
-        #     chain(
-        #         [tx.encode() for tx in self.txs],
-        #         [rx.encode() for rx in self.rxs],
-        #     )
-        # )
+        return b"".join(
+            [
+                b"0001",
+                encode_varint(len(self.txs)),
+                *[tx.encode() for tx in self.txs],
+                encode_varint(len(self.rxs)),
+                *[rx.encode() for rx in self.rxs],
+            ]
+        )
