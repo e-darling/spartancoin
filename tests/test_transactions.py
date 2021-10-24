@@ -57,6 +57,8 @@ def test_encode_varint_invalid(i: int) -> None:
 
 
 class TestTx:
+    '''Test the Tx class'''
+
     @staticmethod
     def test_genesis(private_key) -> None:
         """Test the Tx class"""

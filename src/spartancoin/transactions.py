@@ -7,7 +7,6 @@ Bitcoin uses ec.SECP256K1 for its EC curve.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar
-from itertools import chain
 from typing import Collection
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -145,7 +144,6 @@ class Transaction:
 
     def encode(self) -> bytes:
         """Serialize the transaction"""
-        ...
         return b"".join(
             [
                 b"0001",

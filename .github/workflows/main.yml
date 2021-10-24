@@ -30,15 +30,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: mypy
-        run: |
-          mypy -v .
-      - name: pytest
-        id: pytest
-        uses: paolorechia/fast-pytest-github-action@v1.0
-        with:
-          pytest_args: -v .
-          requirements_file: requirements.txt
       - name: Black Check
         # You may pin to the exact commit or the version.
         # uses: jpetrucciani/black-check@e7747cb3cb80bf067675cc1e0c377b28135577ca
@@ -46,3 +37,15 @@ jobs:
         with:
           # File or directory to run black on
           path: .
+      - name: pylint
+        run: |
+          pylint src tests
+      - name: mypy
+        run: |
+          mypy -v .
+      - name: pytest
+        id: pytest
+        uses: paolorechia/fast-pytest-github-action@v1.0
+        with:
+          pytest_args: .
+          requirements_file: requirements.txt
