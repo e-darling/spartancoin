@@ -6,7 +6,7 @@ Bitcoin uses ec.SECP256K1 for its EC curve.
 
 from __future__ import annotations
 
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field, InitVar
 from itertools import chain
 from typing import Collection
 
@@ -43,9 +43,8 @@ class Tx:
         Previous Transaction hash (0 if Genesis)  | 32 bytes
         Previous Tx-index (-1 if Genesis)         | 4 bytes
         length of next two fields                 | 1 to 9 bytes VarInt
-        signature                                 | 64 bytes
-        public key to verify signature            | <2*previous field> - 64 bytes
-        sequence_no (not implemented)             | 4 bytes
+        signature                                 | varies
+        public key to verify signature            | varies
     """
 
     prev_tx_hash: bytes
@@ -129,19 +128,16 @@ class Transaction:
         change, if any, back to the sender.
 
     Sp, to spend only a part of a coin, a transaction is made from A to A and B,
-    where A receives the "unspent" amount and Bob receives the "spent" amount.
+    where A receives the "unspent" amount and B receives the "spent" amount.
 
     Transaction layout modified from https://en.bitcoin.it/wiki/Transaction#General_format_of_a_Bitcoin_transaction_.28inside_a_block.29
         Field                             | Size
         ---------------------------------------------
-        version number (not implemented)  | 4 bytes
-        witness flag (not implemented)    | 2 bytes
+        version number                    | 4 bytes
         number of inputs                  | 1 to 9 bytes VarInt
         list of inputs                    | varies
         number of outputs                 | 1 to 9 bytes VarInt
         list of outputs                   | varies
-        witnesses (not implemented)       | varies
-        lock time (not implemented)       | 4 bytes
     """
 
     txs: Collection[Tx]
