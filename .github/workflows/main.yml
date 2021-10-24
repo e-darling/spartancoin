@@ -26,6 +26,10 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: '3.7.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
       - name: mypy
         uses: jpetrucciani/mypy-check@0.910
         with:
@@ -35,8 +39,8 @@ jobs:
         id: pytest
         uses: paolorechia/fast-pytest-github-action@v1.0
         with:
-          pytest_args: .
-          requirements_file: requirements.txt        
+          pytest_args: -v .
+          requirements_file: requirements.txt
       - name: Black Check
         # You may pin to the exact commit or the version.
         # uses: jpetrucciani/black-check@e7747cb3cb80bf067675cc1e0c377b28135577ca
