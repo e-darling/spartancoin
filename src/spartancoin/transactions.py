@@ -97,6 +97,12 @@ class Tx:
             and self.public_key.public_numbers() == other.public_key.public_numbers()
         )
 
+    def __repr__(self):
+        return (
+            f"Tx({self.prev_tx_hash}, {self.prev_tx_idx}, "
+            f"{self.signature}, {self.public_key})"
+        )
+
     @classmethod
     def from_prk(
         cls,
