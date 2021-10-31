@@ -69,6 +69,7 @@ class Tx:
             serialization.Encoding.DER,
             serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+        assert len(encoded_public_key) == 88, "this should be consistent"
         return b"".join(
             [
                 self.prev_tx_hash,
