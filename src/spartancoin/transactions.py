@@ -42,26 +42,34 @@ class Tx:
         Previous Transaction hash (0 if Genesis)  | 32 bytes
         Previous Tx-index (-1 if Genesis)         | 4 bytes
         length of next two fields                 | 1 to 9 bytes VarInt
-        signature                                 | varies
-        public key to verify signature            | varies
+        signature                                 | <previous field> bytes - 88
+        public key to verify signature            | 88 bytes
     """
 
     prev_tx_hash: bytes
     prev_tx_idx: int
-    sender_private_key: InitVar[ec.EllipticCurvePrivateKey]
-    signature: bytes = field(init=False)
+    signature: bytes
+    public_key: ec.EllipticCurvePublicKey
 
-    def __post_init__(self, sender_private_key: ec.EllipticCurvePrivateKey) -> None:
+    def __post_init__(self) -> None:
         if not len(self.prev_tx_hash) == 32:
             raise ValueError("Previous has must be 32 bytes")
         if self.prev_tx_idx == -1:
             # special case for genesis blocks;
             # serialized as unsigned so "overflow" with 4 bytes
             self.prev_tx_idx = 0xFFFF_FFFF
-        self.signature = sender_private_key.sign(
-            self.prev_tx_hash, ec.ECDSA(hashes.SHA256())
-        )
-        self.public_key = sender_private_key.public_key()
+
+    @classmethod
+    def from_prk(
+        cls,
+        prev_tx_hash: bytes,
+        prev_tx_idx: int,
+        sender_private_key: ec.EllipticCurvePrivateKey,
+    ) -> None:
+        """Create a `Tx` from the sender's private key."""
+        signature = sender_private_key.sign(prev_tx_hash, ec.ECDSA(hashes.SHA256()))
+        public_key = sender_private_key.public_key()
+        return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
     def encode(self) -> bytes:
         """Serialize the transmitter"""

@@ -66,7 +66,7 @@ class TestTx:
         prev_tx_hash = bytearray(32)
         prev_tx_hash[: len(coinbase)] = coinbase
 
-        observed = Tx(prev_tx_hash, -1, private_key).encode()
+        observed = Tx.from_prk(prev_tx_hash, -1, private_key).encode()
 
         assert observed[:32] == prev_tx_hash
         assert observed[32:36] == b"\xFF\xFF\xFF\xFF"
@@ -78,7 +78,7 @@ class TestTx:
         prev_tx_hash = bytearray(32)
         prev_tx_hash[: len(tmp)] = tmp
 
-        observed = Tx(prev_tx_hash, 1, private_key).encode()
+        observed = Tx.from_prk(prev_tx_hash, 1, private_key).encode()
 
         assert observed[:32] == prev_tx_hash
         assert observed[32:36] == b"\x01\x00\x00\x00"
