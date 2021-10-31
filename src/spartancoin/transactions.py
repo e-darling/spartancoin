@@ -146,7 +146,7 @@ class Transaction:
         """Serialize the transaction"""
         return b"".join(
             [
-                b"0001",
+                b"0001",  # version 1
                 encode_varint(len(self.txs)),
                 *[tx.encode() for tx in self.txs],
                 encode_varint(len(self.rxs)),
