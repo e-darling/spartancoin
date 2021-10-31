@@ -50,11 +50,11 @@ def decode_varint(b: bytes) -> int:
         _assert_is_len(b, 1)
         return int.from_bytes(b, byteorder="little")
     if sentinel == 0xFD:
-        _assert_is_len(b, 2)
+        _assert_is_len(b[1:], 2)
     elif sentinel == 0xFE:
-        _assert_is_len(b, 4)
+        _assert_is_len(b[1:], 4)
     else:  # sentinel == 0xFF:
-        _assert_is_len(b, 8)
+        _assert_is_len(b[1:], 8)
     return int.from_bytes(b[1:], byteorder="little")
 
 
