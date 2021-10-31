@@ -7,10 +7,12 @@ Bitcoin uses ec.SECP256K1 for its EC curve.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, InitVar
-from typing import Collection
+from typing import cast, Collection
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+
+from .exceptions import DecodeError
 
 
 def encode_varint(i: int) -> bytes:
@@ -29,6 +31,31 @@ def encode_varint(i: int) -> bytes:
     if i <= 0xFFFF_FFFF_FFFF_FFFF:
         return b"\xFF" + i.to_bytes(8, byteorder="little")
     raise ValueError(f"invalid: {i!r}")
+
+
+def _assert_is_len(b: bytes, n: int) -> None:
+    if len(b) != n:
+        raise ValueError(f"Expecting length {n:d}")
+
+
+def decode_varint(b: bytes) -> int:
+    """
+    Decode a variable-length integer in little endian as per
+    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+    """
+    if not b:
+        raise ValueError("empty bytes")
+    sentinel = b[0]
+    if sentinel < 0xFD:
+        _assert_is_len(b, 1)
+        return int.from_bytes(b, byteorder="little")
+    if sentinel == 0xFD:
+        _assert_is_len(b, 2)
+    elif sentinel == 0xFE:
+        _assert_is_len(b, 4)
+    else:  # sentinel == 0xFF:
+        _assert_is_len(b, 8)
+    return int.from_bytes(b[1:], byteorder="little")
 
 
 @dataclass
@@ -59,13 +86,24 @@ class Tx:
             # serialized as unsigned so "overflow" with 4 bytes
             self.prev_tx_idx = 0xFFFF_FFFF
 
+    def __eq__(self, other):
+        if not isinstance(other, Tx):
+            return NotImplemented
+        return (
+            self.prev_tx_hash == other.prev_tx_hash
+            and self.prev_tx_idx == other.prev_tx_idx
+            and self.signature == other.signature
+            # `self.public_key == other.public_key` does not work
+            and self.public_key.public_numbers() == other.public_key.public_numbers()
+        )
+
     @classmethod
     def from_prk(
         cls,
         prev_tx_hash: bytes,
         prev_tx_idx: int,
         sender_private_key: ec.EllipticCurvePrivateKey,
-    ) -> None:
+    ) -> Tx:
         """Create a `Tx` from the sender's private key."""
         signature = sender_private_key.sign(prev_tx_hash, ec.ECDSA(hashes.SHA256()))
         public_key = sender_private_key.public_key()
@@ -87,6 +125,29 @@ class Tx:
                 encoded_public_key,
             ]
         )
+
+    @classmethod
+    def from_bytes(cls, b: bytes) -> Tx:
+        """Return a `Tx` from the encoded bytes"""
+        prev_tx_hash = b[:32]
+        prev_tx_idx = int.from_bytes(b[32:36], byteorder="little")
+        len_next_two = None
+        for n in (1, 3, 5, 9):
+            try:
+                len_next_two = decode_varint(b[36 : 36 + n])
+            except ValueError:
+                continue
+            else:
+                break
+        if len_next_two is None:
+            raise DecodeError("invalid varint")
+        signature = b[36 + n : 36 + n + len_next_two - 88]
+        # `load_der_public_key` returns `DSAPublicKey | EllipticCurvePublicKey | ...`
+        public_key = cast(
+            ec.EllipticCurvePublicKey,
+            serialization.load_der_public_key(b[36 + n + len_next_two - 88 :]),
+        )
+        return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
 @dataclass
