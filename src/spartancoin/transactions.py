@@ -126,7 +126,7 @@ class Transaction:
         and at most two outputs: one for the payment, and one returning the
         change, if any, back to the sender.
 
-    Sp, to spend only a part of a coin, a transaction is made from A to A and B,
+    So, to spend only a part of a coin, a transaction is made from A to A and B,
     where A receives the "unspent" amount and B receives the "spent" amount.
 
     Transaction layout modified from https://en.bitcoin.it/wiki/Transaction#General_format_of_a_Bitcoin_transaction_.28inside_a_block.29
