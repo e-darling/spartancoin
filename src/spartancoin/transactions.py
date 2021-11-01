@@ -6,7 +6,7 @@ Bitcoin uses ec.SECP256K1 for its EC curve.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass
 from typing import cast, Collection
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -135,9 +135,10 @@ class Tx:
     @classmethod
     def from_bytes(cls, b: bytes) -> Tx:
         """Return a `Tx` from the encoded bytes"""
+        if len(b) <= 32 + 4 + 88:
+            raise DecodeError("invalid length")
         prev_tx_hash = b[:32]
         prev_tx_idx = int.from_bytes(b[32:36], byteorder="little")
-        len_next_two = None
         for n in (1, 3, 5, 9):
             try:
                 len_next_two = decode_varint(b[36 : 36 + n])
@@ -145,8 +146,10 @@ class Tx:
                 continue
             else:
                 break
-        if len_next_two is None:
+        else:
             raise DecodeError("invalid varint")
+        if len(b[36 + n :]) != len_next_two:
+            raise DecodeError("invalid length")
         signature = b[36 + n : 36 + n + len_next_two - 88]
         # `load_der_public_key` returns `DSAPublicKey | EllipticCurvePublicKey | ...`
         public_key = cast(

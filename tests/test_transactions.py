@@ -129,3 +129,29 @@ class TestTx:
         encoded = tx.encode()
         decoded = Tx.from_bytes(encoded)
         assert decoded == tx
+
+    @staticmethod
+    def test_decode_raises() -> None:
+        """Test encoding and decoding are inverses"""
+        encoded = (
+            b"\xe4\xf1<\x9em\xf4\xe4f\x1a\x8e\xe0\x8a\x89\xe3\x0e\xc8|\xbeia\xb9"
+            b"\xcc\xfe\xfc\xbe\xb9H+\x8e\x17\xfb\xd8\xedv\xc3\xc5\x9c\xf7kTO\xf8"
+            b"\xc128\xfc\xd4\xff\xc3\x9c\xa8\xf2\x93\x8c\xe5\xf8\xfcB\xf5a\xe4/*"
+            b"c8\x8e\x8e\x93Z\xdaq\x18F\x0c|\x03K?\xd9\xb0c\x1at\xf3g\xcf\xa4|"
+            b"\xfe\xa5\x80\xf6\x03K%\x1a%\x02\xbb\x92Nt\xa5\xf5\xea0V0\x10\x06"
+            b"\x07*\x86H\xce=\x02\x01\x06\x05+\x81\x04\x00\n\x03B\x00\x04\x93)"
+            b"\xa0\xb4\xde)\x99J_\xb4\xe3K\x11\x91\x9c\x15\xa4+\x8bp\nQ\xdd\xa1"
+            b"\xbb\xfb\xe8%\xa7\x91\x84\x05\xdd)$l\xce\xb7\x0b\xcd\xcc\xe1\xdd"
+            b"\xbcS\xd70O\xcc~\xd1\x97s\x8d\xde\xe8$\xb2`\xef\x0f\xec\xaf\x90"
+        )
+        assert Tx.from_bytes(encoded)
+
+        with pytest.raises(DecodeError) as excinfo:
+            Tx.from_bytes(b"-")
+        assert "invalid length" in excinfo.value.args
+        with pytest.raises(DecodeError) as excinfo:
+            Tx.from_bytes(encoded + b"-")
+        assert "invalid length" in excinfo.value.args
+        with pytest.raises(DecodeError) as excinfo:
+            Tx.from_bytes(encoded[:-1])
+        assert "invalid length" in excinfo.value.args
