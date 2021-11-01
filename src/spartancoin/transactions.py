@@ -58,6 +58,12 @@ def decode_varint(b: bytes) -> int:
     return int.from_bytes(b[1:], byteorder="little")
 
 
+def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
+    """Decode a public key from its encoded representation"""
+    # `load_der_public_key` returns `DSAPublicKey | EllipticCurvePublicKey | ...`
+    return cast(ec.EllipticCurvePublicKey, serialization.load_der_public_key(b))
+
+
 @dataclass
 class Tx:
     """
@@ -151,11 +157,7 @@ class Tx:
         if len(b[36 + n :]) != len_next_two:
             raise DecodeError("invalid length")
         signature = b[36 + n : 36 + n + len_next_two - 88]
-        # `load_der_public_key` returns `DSAPublicKey | EllipticCurvePublicKey | ...`
-        public_key = cast(
-            ec.EllipticCurvePublicKey,
-            serialization.load_der_public_key(b[36 + n + len_next_two - 88 :]),
-        )
+        public_key = _decode_public_key(b[36 + n + len_next_two - 88 :])
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
