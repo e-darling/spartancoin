@@ -169,7 +169,7 @@ class Rx:
     Receiver layout modified from https://en.bitcoin.it/wiki/Transaction#General_format_.28inside_a_block.29_of_each_output_of_a_transaction_-_Txout
         Field                 | Size
         ----------------------------------------------
-        value                 | 8 bytes
+        amount                | 8 bytes
         length of next field  | 1 to 9 bytes VarInt
         Rx-PubKey             | <previous field> bytes
     """
@@ -190,6 +190,24 @@ class Rx:
                 encoded_public_key,
             ]
         )
+
+    @classmethod
+    def from_bytes(cls, b: bytes) -> Rx:
+        """Serialize the receiver"""
+        amount = int.from_bytes(b[:8], byteorder="little")
+        for n in (1, 3, 5, 9):
+            try:
+                len_puk = decode_varint(b[36 : 36 + n])
+            except ValueError:
+                continue
+            else:
+                break
+        else:
+            raise DecodeError("invalid varint")
+        if len(b[8 + n :]) != len_puk:
+            raise DecodeError("invalid length")
+        public_key = _decode_public_key(b[8 + n :])
+        return cls(amount, public_key)
 
 
 @dataclass
