@@ -155,3 +155,45 @@ class TestTx:
         with pytest.raises(DecodeError) as excinfo:
             Tx.from_bytes(encoded[:-1])
         assert "invalid length" in excinfo.value.args
+
+
+class TestRx:
+    """Test the `Rx` class"""
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "rx",
+        [
+            Rx(43, ec.generate_private_key(ec.SECP256K1()).public_key())
+            for _ in range(10)
+        ],
+    )
+    def test_encode_decode(rx) -> None:
+        """Test encoding and decoding are inverses"""
+        encoded = rx.encode()
+        decoded = Rx.from_bytes(encoded)
+        assert decoded == rx
+
+    @staticmethod
+    def test_decode_raises() -> None:
+        """Test encoding and decoding are inverses"""
+        with pytest.raises(DecodeError) as excinfo:
+            Rx.from_bytes(8 * b"-" + 3 * b"\xff")
+        assert "invalid varint" in excinfo.value.args
+        with pytest.raises(DecodeError) as excinfo:
+            Rx.from_bytes(b"-")
+        assert "invalid length" in excinfo.value.args
+
+        encoded = (
+            b"+\x00\x00\x00\x00\x00\x00\x00X0V0\x10\x06\x07*\x86H\xce=\x02\x01"
+            b"\x06\x05+\x81\x04\x00\n\x03B\x00\x04\rp\xad\xdc\xa7\x88\xc9#0\xad"
+            b"Jd \xf1J+FW\x81sg\xc4U\xe6\x19\xadwF8\x94\x0fcM>!\xd3\xed\x96\xf0"
+            b"\x9e\xae\x1eKF\x0e\xc7\r\x9d\x1e\xf2PoPiv\xb9.\\i\x84\x94\xf4Q\x1f"
+        )
+        assert Rx.from_bytes(encoded)
+        with pytest.raises(DecodeError) as excinfo:
+            Rx.from_bytes(encoded + b"-")
+        assert "invalid length" in excinfo.value.args
+        with pytest.raises(DecodeError) as excinfo:
+            Rx.from_bytes(encoded[:-1])
+        assert "invalid length" in excinfo.value.args
