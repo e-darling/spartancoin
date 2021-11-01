@@ -177,6 +177,18 @@ class Rx:
     amount: int
     recipient: ec.EllipticCurvePublicKey
 
+    def __eq__(self, other):
+        if not isinstance(other, Rx):
+            return NotImplemented
+        return (
+            self.amount == other.amount
+            # `self.public_key == other.public_key` does not work
+            and self.recipient.public_numbers() == other.recipient.public_numbers()
+        )
+
+    def __repr__(self):
+        return f"Rx({self.amount}, {self.recipient})"
+
     def encode(self) -> bytes:
         """Serialize the receiver"""
         encoded_public_key = self.recipient.public_bytes(
@@ -194,10 +206,12 @@ class Rx:
     @classmethod
     def from_bytes(cls, b: bytes) -> Rx:
         """Serialize the receiver"""
+        if len(b) <= 8 + 1 + 1:
+            raise DecodeError("invalid length")
         amount = int.from_bytes(b[:8], byteorder="little")
         for n in (1, 3, 5, 9):
             try:
-                len_puk = decode_varint(b[36 : 36 + n])
+                len_puk = decode_varint(b[8 : 8 + n])
             except ValueError:
                 continue
             else:
