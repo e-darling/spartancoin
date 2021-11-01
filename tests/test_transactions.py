@@ -10,7 +10,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from spartancoin.transactions import decode_varint, DecodeError, encode_varint, Tx
+from spartancoin.transactions import decode_varint, DecodeError, encode_varint, Rx, Tx
 
 
 @pytest.fixture(name="private_key")
@@ -83,7 +83,7 @@ class TestVarInt:
 
 
 class TestTx:
-    """Test the Tx class"""
+    """Test the `Tx` class"""
 
     @staticmethod
     def test_genesis(private_key) -> None:
@@ -133,6 +133,10 @@ class TestTx:
     @staticmethod
     def test_decode_raises() -> None:
         """Test encoding and decoding are inverses"""
+        with pytest.raises(DecodeError) as excinfo:
+            Tx.from_bytes(b"-")
+        assert "invalid length" in excinfo.value.args
+
         encoded = (
             b"\xe4\xf1<\x9em\xf4\xe4f\x1a\x8e\xe0\x8a\x89\xe3\x0e\xc8|\xbeia\xb9"
             b"\xcc\xfe\xfc\xbe\xb9H+\x8e\x17\xfb\xd8\xedv\xc3\xc5\x9c\xf7kTO\xf8"
@@ -145,10 +149,6 @@ class TestTx:
             b"\xbcS\xd70O\xcc~\xd1\x97s\x8d\xde\xe8$\xb2`\xef\x0f\xec\xaf\x90"
         )
         assert Tx.from_bytes(encoded)
-
-        with pytest.raises(DecodeError) as excinfo:
-            Tx.from_bytes(b"-")
-        assert "invalid length" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
             Tx.from_bytes(encoded + b"-")
         assert "invalid length" in excinfo.value.args
