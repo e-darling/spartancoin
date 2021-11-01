@@ -132,7 +132,7 @@ class TestTx:
 
     @staticmethod
     def test_decode_raises() -> None:
-        """Test encoding and decoding are inverses"""
+        """Test decoding invalid representations raise"""
         with pytest.raises(DecodeError) as excinfo:
             Tx.from_bytes(b"-")
         assert "invalid length" in excinfo.value.args
@@ -176,7 +176,7 @@ class TestRx:
 
     @staticmethod
     def test_decode_raises() -> None:
-        """Test encoding and decoding are inverses"""
+        """Test decoding invalid representations raise"""
         with pytest.raises(DecodeError) as excinfo:
             Rx.from_bytes(8 * b"-" + 3 * b"\xff")
         assert "invalid varint" in excinfo.value.args
