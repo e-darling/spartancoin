@@ -39,7 +39,7 @@ jobs:
           path: .
       - name: pylint
         run: |
-          pylint src tests
+          pylint src/spartancoin tests
       - name: mypy
         run: |
           mypy -v .
