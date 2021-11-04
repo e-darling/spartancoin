@@ -10,7 +10,13 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from spartancoin.transactions import decode_varint, DecodeError, encode_varint, Rx, Tx
+from spartancoin.transactions import (
+    decode_varint,
+    DecodeError,
+    encode_varint,
+    Receiver,
+    Sender,
+)
 
 
 @pytest.fixture(name="private_key")
@@ -83,28 +89,28 @@ class TestVarInt:
 
 
 class TestTx:
-    """Test the `Tx` class"""
+    """Test the `Sender` class"""
 
     @staticmethod
     def test_genesis(private_key) -> None:
-        """Test the Tx class"""
+        """Test the Sender class"""
         coinbase = b"Genesis"
         prev_tx_hash = bytearray(32)
         prev_tx_hash[: len(coinbase)] = coinbase
 
-        observed = Tx.from_prk(prev_tx_hash, -1, private_key).encode()
+        observed = Sender.from_prk(prev_tx_hash, -1, private_key).encode()
 
         assert observed[:32] == prev_tx_hash
         assert observed[32:36] == b"\xFF\xFF\xFF\xFF"
 
     @staticmethod
     def test_generic(private_key) -> None:
-        """Test the Tx class"""
+        """Test the Sender class"""
         tmp = b"not genesis"
         prev_tx_hash = bytearray(32)
         prev_tx_hash[: len(tmp)] = tmp
 
-        observed = Tx.from_prk(prev_tx_hash, 1, private_key).encode()
+        observed = Sender.from_prk(prev_tx_hash, 1, private_key).encode()
 
         assert observed[:32] == prev_tx_hash
         assert observed[32:36] == b"\x01\x00\x00\x00"
@@ -113,7 +119,7 @@ class TestTx:
     @pytest.mark.parametrize(
         "tx",
         [
-            Tx(
+            Sender(
                 bytearray(random.randrange(1 << 8) for _ in range(32)),
                 random.randrange(1 << 32),
                 bytearray(
@@ -127,14 +133,14 @@ class TestTx:
     def test_encode_decode(tx) -> None:
         """Test encoding and decoding are inverses"""
         encoded = tx.encode()
-        decoded = Tx.from_bytes(encoded)
+        decoded = Sender.from_bytes(encoded)
         assert decoded == tx
 
     @staticmethod
     def test_decode_raises() -> None:
         """Test decoding invalid representations raise"""
         with pytest.raises(DecodeError) as excinfo:
-            Tx.from_bytes(b"-")
+            Sender.from_bytes(b"-")
         assert "invalid length" in excinfo.value.args
 
         encoded = (
@@ -148,40 +154,40 @@ class TestTx:
             b"\xbb\xfb\xe8%\xa7\x91\x84\x05\xdd)$l\xce\xb7\x0b\xcd\xcc\xe1\xdd"
             b"\xbcS\xd70O\xcc~\xd1\x97s\x8d\xde\xe8$\xb2`\xef\x0f\xec\xaf\x90"
         )
-        assert Tx.from_bytes(encoded)
+        assert Sender.from_bytes(encoded)
         with pytest.raises(DecodeError) as excinfo:
-            Tx.from_bytes(encoded + b"-")
+            Sender.from_bytes(encoded + b"-")
         assert "invalid length" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
-            Tx.from_bytes(encoded[:-1])
+            Sender.from_bytes(encoded[:-1])
         assert "invalid length" in excinfo.value.args
 
 
 class TestRx:
-    """Test the `Rx` class"""
+    """Test the `Receiver` class"""
 
     @staticmethod
     @pytest.mark.parametrize(
         "rx",
         [
-            Rx(43, ec.generate_private_key(ec.SECP256K1()).public_key())
+            Receiver(43, ec.generate_private_key(ec.SECP256K1()).public_key())
             for _ in range(10)
         ],
     )
     def test_encode_decode(rx) -> None:
         """Test encoding and decoding are inverses"""
         encoded = rx.encode()
-        decoded = Rx.from_bytes(encoded)
+        decoded = Receiver.from_bytes(encoded)
         assert decoded == rx
 
     @staticmethod
     def test_decode_raises() -> None:
         """Test decoding invalid representations raise"""
         with pytest.raises(DecodeError) as excinfo:
-            Rx.from_bytes(8 * b"-" + 3 * b"\xff")
+            Receiver.from_bytes(8 * b"-" + 3 * b"\xff")
         assert "invalid varint" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
-            Rx.from_bytes(b"-")
+            Receiver.from_bytes(b"-")
         assert "invalid length" in excinfo.value.args
 
         encoded = (
@@ -190,10 +196,10 @@ class TestRx:
             b"Jd \xf1J+FW\x81sg\xc4U\xe6\x19\xadwF8\x94\x0fcM>!\xd3\xed\x96\xf0"
             b"\x9e\xae\x1eKF\x0e\xc7\r\x9d\x1e\xf2PoPiv\xb9.\\i\x84\x94\xf4Q\x1f"
         )
-        assert Rx.from_bytes(encoded)
+        assert Receiver.from_bytes(encoded)
         with pytest.raises(DecodeError) as excinfo:
-            Rx.from_bytes(encoded + b"-")
+            Receiver.from_bytes(encoded + b"-")
         assert "invalid length" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
-            Rx.from_bytes(encoded[:-1])
+            Receiver.from_bytes(encoded[:-1])
         assert "invalid length" in excinfo.value.args

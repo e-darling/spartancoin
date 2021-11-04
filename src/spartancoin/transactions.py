@@ -65,7 +65,7 @@ def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
 
 
 @dataclass
-class Tx:
+class Sender:
     """
     An object representing a transmitting input.
 
@@ -73,7 +73,7 @@ class Tx:
         Field                                     | Size
         -------------------------------------------------------------------------
         Previous Transaction hash (0 if Genesis)  | 32 bytes
-        Previous Tx-index (-1 if Genesis)         | 4 bytes
+        Previous Sender-index (-1 if Genesis)     | 4 bytes
         length of next two fields                 | 1 to 9 bytes VarInt
         signature                                 | <previous field> bytes - 88
         public key to verify signature            | 88 bytes
@@ -93,7 +93,7 @@ class Tx:
             self.prev_tx_idx = 0xFFFF_FFFF
 
     def __eq__(self, other):
-        if not isinstance(other, Tx):
+        if not isinstance(other, Sender):
             return NotImplemented
         return (
             self.prev_tx_hash == other.prev_tx_hash
@@ -105,7 +105,7 @@ class Tx:
 
     def __repr__(self):
         return (
-            f"Tx({self.prev_tx_hash}, {self.prev_tx_idx}, "
+            f"Sender({self.prev_tx_hash}, {self.prev_tx_idx}, "
             f"{self.signature}, {self.public_key})"
         )
 
@@ -115,8 +115,8 @@ class Tx:
         prev_tx_hash: bytes,
         prev_tx_idx: int,
         sender_private_key: ec.EllipticCurvePrivateKey,
-    ) -> Tx:
-        """Create a `Tx` from the sender's private key."""
+    ) -> Sender:
+        """Create a `Sender` from the sender's private key."""
         signature = sender_private_key.sign(prev_tx_hash, ec.ECDSA(hashes.SHA256()))
         public_key = sender_private_key.public_key()
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
@@ -139,8 +139,8 @@ class Tx:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Tx:
-        """Return a `Tx` from the encoded bytes"""
+    def from_bytes(cls, b: bytes) -> Sender:
+        """Return a `Sender` from the encoded bytes"""
         if len(b) <= 32 + 4 + 88:
             raise DecodeError("invalid length")
         prev_tx_hash = b[:32]
@@ -162,7 +162,7 @@ class Tx:
 
 
 @dataclass
-class Rx:
+class Receiver:
     """
     An object representing a receiving block.
 
@@ -171,14 +171,14 @@ class Rx:
         ----------------------------------------------
         amount                | 8 bytes
         length of next field  | 1 to 9 bytes VarInt
-        Rx-PubKey             | <previous field> bytes
+        Receiver-PubKey       | <previous field> bytes
     """
 
     amount: int
     recipient: ec.EllipticCurvePublicKey
 
     def __eq__(self, other):
-        if not isinstance(other, Rx):
+        if not isinstance(other, Receiver):
             return NotImplemented
         return (
             self.amount == other.amount
@@ -187,7 +187,7 @@ class Rx:
         )
 
     def __repr__(self):
-        return f"Rx({self.amount}, {self.recipient})"
+        return f"Receiver({self.amount}, {self.recipient})"
 
     def encode(self) -> bytes:
         """Serialize the receiver"""
@@ -204,7 +204,7 @@ class Rx:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Rx:
+    def from_bytes(cls, b: bytes) -> Receiver:
         """Serialize the receiver"""
         if len(b) <= 8 + 1 + 1:
             raise DecodeError("invalid length")
@@ -252,17 +252,17 @@ class Transaction:
         list of outputs                   | varies
     """
 
-    txs: Collection[Tx]
-    rxs: Collection[Rx]
+    senders: Collection[Sender]
+    receivers: Collection[Receiver]
 
     def encode(self) -> bytes:
         """Serialize the transaction"""
         return b"".join(
             [
                 b"0001",  # version 1
-                encode_varint(len(self.txs)),
-                *[tx.encode() for tx in self.txs],
-                encode_varint(len(self.rxs)),
-                *[rx.encode() for rx in self.rxs],
+                encode_varint(len(self.senders)),
+                *[tx.encode() for tx in self.senders],
+                encode_varint(len(self.receivers)),
+                *[rx.encode() for rx in self.receivers],
             ]
         )
