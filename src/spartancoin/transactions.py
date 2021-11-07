@@ -172,25 +172,23 @@ class Sender:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Sender:
-        """Return a `Sender` from the encoded bytes"""
-        if len(b) <= 32 + 4 + 88:
-            raise DecodeError("invalid length")
-        prev_tx_hash = b[:32]
-        prev_tx_idx = int.from_bytes(b[32:36], byteorder="little")
-        for n in (1, 3, 5, 9):
-            try:
-                len_next_two = decode_varint(b[36 : 36 + n])
-            except ValueError:
-                continue
-            else:
-                break
-        else:
-            raise DecodeError("invalid varint")
-        if len(b[36 + n :]) != len_next_two:
-            raise DecodeError("invalid length")
-        signature = b[36 + n : 36 + n + len_next_two - 88]
-        public_key = _decode_public_key(b[36 + n + len_next_two - 88 :])
+    def decode(cls, b: bytes) -> Sender:
+        """Decode a `Sender` from the encoded bytes"""
+        d = BytesIO(b)
+        sender = cls.raw_decode(d)
+        if d.read(1):
+            # have already parsed, but there are still things after it
+            raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, b: BytesIO) -> Sender:
+        """Decode (raw) a `Sender` from the encoded bytes"""
+        prev_tx_hash = _assert_read(b, 32)
+        prev_tx_idx = int.from_bytes(_assert_read(b, 4), byteorder="little")
+        len_of_next_two = raw_decode_varint(b)
+        signature = _assert_read(b, len_of_next_two - 88)
+        public_key = _decode_public_key(_assert_read(b, 88))
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
@@ -237,23 +235,21 @@ class Receiver:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Receiver:
-        """Serialize the receiver"""
-        if len(b) <= 8 + 1 + 1:
-            raise DecodeError("invalid length")
-        amount = int.from_bytes(b[:8], byteorder="little")
-        for n in (1, 3, 5, 9):
-            try:
-                len_puk = decode_varint(b[8 : 8 + n])
-            except ValueError:
-                continue
-            else:
-                break
-        else:
-            raise DecodeError("invalid varint")
-        if len(b[8 + n :]) != len_puk:
-            raise DecodeError("invalid length")
-        public_key = _decode_public_key(b[8 + n :])
+    def decode(cls, b: bytes) -> Receiver:
+        """Decode a `Receiver` from the encoded bytes"""
+        d = BytesIO(b)
+        sender = cls.raw_decode(d)
+        if d.read(1):
+            # have already parsed, but there are still things after it
+            raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, b: BytesIO) -> Receiver:
+        """Decode (raw) a `Receiver` from the encoded bytes"""
+        amount = int.from_bytes(_assert_read(b, 8), byteorder="little")
+        len_of_public_key = raw_decode_varint(b)
+        public_key = _decode_public_key(_assert_read(b, len_of_public_key))
         return cls(amount, public_key)
 
 
