@@ -1,13 +1,18 @@
 """
-This module handles transactions
+This module handles transactions.
 
-Bitcoin uses ec.SECP256K1 for its EC curve.
+The naming conventions for `decode` and `raw_decode` functions are that:
+- `decode` functions take `bytes` objects expecting a single object
+- `raw_decode` takes `BytesIO` objects may have extraneous data at the end
+  and will only take from the stream as much as they need to parse the next
+  object, leaving the extraneous characters in the stream
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast, Collection
+from io import BytesIO
+from typing import cast, Sequence
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -16,9 +21,14 @@ from .exceptions import DecodeError
 
 
 def encode_varint(i: int) -> bytes:
-    """
+    r"""
     Encode a variable-length integer in little endian as per
     https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> encode_varint(252)
+    b'\xfc'
+    >>> encode_varint(255)
+    b'\xfd\xff\x00'
     """
     if i < 0:
         raise ValueError(f"invalid: {i!r}")
@@ -33,29 +43,63 @@ def encode_varint(i: int) -> bytes:
     raise ValueError(f"invalid: {i!r}")
 
 
-def _assert_is_len(b: bytes, n: int) -> None:
-    if len(b) != n:
-        raise ValueError(f"Expecting length {n:d}")
+def _assert_read(f: BytesIO, n: int) -> bytes:
+    """
+    Read and assert length is as expected
+
+    >>> f = BytesIO(b"01")
+    >>> _assert_read(f, 1)
+    b'0'
+    >>> _assert_read(f, 2)
+    Traceback (most recent call last):
+      ...
+    spartancoin.exceptions.DecodeError: Expecting length 2
+    """
+    d = f.read(n)
+    if len(d) != n:
+        raise DecodeError(f"Expecting length {n:d}")
+    return d
 
 
 def decode_varint(b: bytes) -> int:
-    """
+    r"""
     Decode a variable-length integer in little endian as per
     https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> decode_varint(b"\xfc")
+    252
+    >>> decode_varint(b"\xfd\xff\x00")
+    255
     """
-    if not b:
-        raise ValueError("empty bytes")
-    sentinel = b[0]
-    if sentinel < 0xFD:
-        _assert_is_len(b, 1)
-        return int.from_bytes(b, byteorder="little")
-    if sentinel == 0xFD:
-        _assert_is_len(b[1:], 2)
-    elif sentinel == 0xFE:
-        _assert_is_len(b[1:], 4)
-    else:  # sentinel == 0xFF:
-        _assert_is_len(b[1:], 8)
-    return int.from_bytes(b[1:], byteorder="little")
+    with BytesIO(b) as f:
+        n = raw_decode_varint(f)
+        if f.read(1):
+            # have already parsed the varint, but there are still things after it
+            raise DecodeError("Extra data")
+    return n
+
+
+def raw_decode_varint(f: BytesIO) -> int:
+    r"""
+    Decode (raw) a variable-length integer in little endian as per
+    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> b = BytesIO(b"\xfc\xff")
+    >>> raw_decode_varint(b)
+    252
+    >>> b.read()
+    b'\xff'
+    """
+    sentinel = _assert_read(f, 1)
+    if sentinel < b"\xFD":
+        return int.from_bytes(sentinel, byteorder="little")
+    if sentinel == b"\xFD":
+        d = _assert_read(f, 2)
+    elif sentinel == b"\xFE":
+        d = _assert_read(f, 4)
+    else:  # sentinel == b"\xFF":
+        d = _assert_read(f, 8)
+    return int.from_bytes(d, byteorder="little")
 
 
 def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
@@ -65,7 +109,7 @@ def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
 
 
 @dataclass
-class Tx:
+class Sender:
     """
     An object representing a transmitting input.
 
@@ -73,7 +117,7 @@ class Tx:
         Field                                     | Size
         -------------------------------------------------------------------------
         Previous Transaction hash (0 if Genesis)  | 32 bytes
-        Previous Tx-index (-1 if Genesis)         | 4 bytes
+        Previous Sender-index (-1 if Genesis)     | 4 bytes
         length of next two fields                 | 1 to 9 bytes VarInt
         signature                                 | <previous field> bytes - 88
         public key to verify signature            | 88 bytes
@@ -93,7 +137,7 @@ class Tx:
             self.prev_tx_idx = 0xFFFF_FFFF
 
     def __eq__(self, other):
-        if not isinstance(other, Tx):
+        if not isinstance(other, Sender):
             return NotImplemented
         return (
             self.prev_tx_hash == other.prev_tx_hash
@@ -105,7 +149,7 @@ class Tx:
 
     def __repr__(self):
         return (
-            f"Tx({self.prev_tx_hash}, {self.prev_tx_idx}, "
+            f"Sender({self.prev_tx_hash}, {self.prev_tx_idx}, "
             f"{self.signature}, {self.public_key})"
         )
 
@@ -115,8 +159,8 @@ class Tx:
         prev_tx_hash: bytes,
         prev_tx_idx: int,
         sender_private_key: ec.EllipticCurvePrivateKey,
-    ) -> Tx:
-        """Create a `Tx` from the sender's private key."""
+    ) -> Sender:
+        """Create a `Sender` from the sender's private key."""
         signature = sender_private_key.sign(prev_tx_hash, ec.ECDSA(hashes.SHA256()))
         public_key = sender_private_key.public_key()
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
@@ -139,30 +183,28 @@ class Tx:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Tx:
-        """Return a `Tx` from the encoded bytes"""
-        if len(b) <= 32 + 4 + 88:
-            raise DecodeError("invalid length")
-        prev_tx_hash = b[:32]
-        prev_tx_idx = int.from_bytes(b[32:36], byteorder="little")
-        for n in (1, 3, 5, 9):
-            try:
-                len_next_two = decode_varint(b[36 : 36 + n])
-            except ValueError:
-                continue
-            else:
-                break
-        else:
-            raise DecodeError("invalid varint")
-        if len(b[36 + n :]) != len_next_two:
-            raise DecodeError("invalid length")
-        signature = b[36 + n : 36 + n + len_next_two - 88]
-        public_key = _decode_public_key(b[36 + n + len_next_two - 88 :])
+    def decode(cls, b: bytes) -> Sender:
+        """Decode a `Sender` from the encoded bytes"""
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, f: BytesIO) -> Sender:
+        """Decode (raw) a `Sender` from the encoded bytes"""
+        prev_tx_hash = _assert_read(f, 32)
+        prev_tx_idx = int.from_bytes(_assert_read(f, 4), byteorder="little")
+        len_of_next_two = raw_decode_varint(f)
+        signature = _assert_read(f, len_of_next_two - 88)
+        public_key = _decode_public_key(_assert_read(f, 88))
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
 @dataclass
-class Rx:
+class Receiver:
     """
     An object representing a receiving block.
 
@@ -171,14 +213,14 @@ class Rx:
         ----------------------------------------------
         amount                | 8 bytes
         length of next field  | 1 to 9 bytes VarInt
-        Rx-PubKey             | <previous field> bytes
+        Receiver-PubKey       | <previous field> bytes
     """
 
     amount: int
     recipient: ec.EllipticCurvePublicKey
 
     def __eq__(self, other):
-        if not isinstance(other, Rx):
+        if not isinstance(other, Receiver):
             return NotImplemented
         return (
             self.amount == other.amount
@@ -187,7 +229,7 @@ class Rx:
         )
 
     def __repr__(self):
-        return f"Rx({self.amount}, {self.recipient})"
+        return f"Receiver({self.amount}, {self.recipient})"
 
     def encode(self) -> bytes:
         """Serialize the receiver"""
@@ -204,23 +246,21 @@ class Rx:
         )
 
     @classmethod
-    def from_bytes(cls, b: bytes) -> Rx:
-        """Serialize the receiver"""
-        if len(b) <= 8 + 1 + 1:
-            raise DecodeError("invalid length")
-        amount = int.from_bytes(b[:8], byteorder="little")
-        for n in (1, 3, 5, 9):
-            try:
-                len_puk = decode_varint(b[8 : 8 + n])
-            except ValueError:
-                continue
-            else:
-                break
-        else:
-            raise DecodeError("invalid varint")
-        if len(b[8 + n :]) != len_puk:
-            raise DecodeError("invalid length")
-        public_key = _decode_public_key(b[8 + n :])
+    def decode(cls, b: bytes) -> Receiver:
+        """Decode a `Receiver` from the encoded bytes"""
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, f: BytesIO) -> Receiver:
+        """Decode (raw) a `Receiver` from the encoded bytes"""
+        amount = int.from_bytes(_assert_read(f, 8), byteorder="little")
+        len_of_public_key = raw_decode_varint(f)
+        public_key = _decode_public_key(_assert_read(f, len_of_public_key))
         return cls(amount, public_key)
 
 
@@ -252,17 +292,44 @@ class Transaction:
         list of outputs                   | varies
     """
 
-    txs: Collection[Tx]
-    rxs: Collection[Rx]
+    senders: Sequence[Sender]
+    receivers: Sequence[Receiver]
+
+    def __eq__(self, other):
+        if not isinstance(other, Transaction):
+            return NotImplemented
+        return self.senders == other.senders and self.receivers == other.receivers
 
     def encode(self) -> bytes:
         """Serialize the transaction"""
         return b"".join(
             [
-                b"0001",  # version 1
-                encode_varint(len(self.txs)),
-                *[tx.encode() for tx in self.txs],
-                encode_varint(len(self.rxs)),
-                *[rx.encode() for rx in self.rxs],
+                b"\x01\x00\x00\x00",  # version 1 in little endian
+                encode_varint(len(self.senders)),
+                *[tx.encode() for tx in self.senders],
+                encode_varint(len(self.receivers)),
+                *[rx.encode() for rx in self.receivers],
             ]
         )
+
+    @classmethod
+    def decode(cls, b: bytes) -> Transaction:
+        """Decode a `Transaction` from the encoded bytes"""
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, f: BytesIO) -> Transaction:
+        """Decode (raw) a `Receiver` from the encoded bytes"""
+        _version_number = int.from_bytes(_assert_read(f, 4), byteorder="little")
+        assert _version_number == 1, "version number is unused but should be 1"
+
+        n_senders = raw_decode_varint(f)
+        senders = [Sender.raw_decode(f) for _ in range(n_senders)]
+        n_receivers = raw_decode_varint(f)
+        receivers = [Receiver.raw_decode(f) for _ in range(n_receivers)]
+        return cls(senders, receivers)
