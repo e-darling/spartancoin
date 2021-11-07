@@ -288,7 +288,7 @@ class Transaction:
         """Serialize the transaction"""
         return b"".join(
             [
-                b"0001",  # version 1
+                b"\x01\x00\x00\x00",  # version 1 in little endian
                 encode_varint(len(self.senders)),
                 *[tx.encode() for tx in self.senders],
                 encode_varint(len(self.receivers)),
