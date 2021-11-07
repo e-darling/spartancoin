@@ -43,7 +43,17 @@ def encode_varint(i: int) -> bytes:
 
 
 def _assert_read(f: BytesIO, n: int) -> bytes:
-    """Read and assert length"""
+    """
+    Read and assert length is as expected
+
+    >>> f = BytesIO(b"01")
+    >>> _assert_read(f, 1)
+    b'0'
+    >>> _assert_read(f, 2)
+    Traceback (most recent call last):
+      ...
+    spartancoin.exceptions.DecodeError: Expecting length 2
+    """
     d = f.read(n)
     if len(d) != n:
         raise DecodeError(f"Expecting length {n:d}")
