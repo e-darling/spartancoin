@@ -42,9 +42,9 @@ def encode_varint(i: int) -> bytes:
     raise ValueError(f"invalid: {i!r}")
 
 
-def _assert_read(b: BytesIO, n: int) -> bytes:
+def _assert_read(f: BytesIO, n: int) -> bytes:
     """Read and assert length"""
-    d = b.read(n)
+    d = f.read(n)
     if len(d) != n:
         raise DecodeError(f"Expecting length {n:d}")
     return d
@@ -60,15 +60,15 @@ def decode_varint(b: bytes) -> int:
     >>> decode_varint(b"\xfd\xff\x00")
     255
     """
-    d = BytesIO(b)
-    n = raw_decode_varint(d)
-    if d.read(1):
-        # have already parsed the varint, but there are still things after it
-        raise DecodeError("Extra data")
+    with BytesIO(b) as f:
+        n = raw_decode_varint(f)
+        if f.read(1):
+            # have already parsed the varint, but there are still things after it
+            raise DecodeError("Extra data")
     return n
 
 
-def raw_decode_varint(b: BytesIO) -> int:
+def raw_decode_varint(f: BytesIO) -> int:
     r"""
     Decode (raw) a variable-length integer in little endian as per
     https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
@@ -79,15 +79,15 @@ def raw_decode_varint(b: BytesIO) -> int:
     >>> b.read()
     b'\xff'
     """
-    sentinel = _assert_read(b, 1)
+    sentinel = _assert_read(f, 1)
     if sentinel < b"\xFD":
         return int.from_bytes(sentinel, byteorder="little")
     if sentinel == b"\xFD":
-        d = _assert_read(b, 2)
+        d = _assert_read(f, 2)
     elif sentinel == b"\xFE":
-        d = _assert_read(b, 4)
+        d = _assert_read(f, 4)
     else:  # sentinel == b"\xFF":
-        d = _assert_read(b, 8)
+        d = _assert_read(f, 8)
     return int.from_bytes(d, byteorder="little")
 
 
@@ -174,21 +174,21 @@ class Sender:
     @classmethod
     def decode(cls, b: bytes) -> Sender:
         """Decode a `Sender` from the encoded bytes"""
-        d = BytesIO(b)
-        sender = cls.raw_decode(d)
-        if d.read(1):
-            # have already parsed, but there are still things after it
-            raise DecodeError("Extra data")
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
         return sender
 
     @classmethod
-    def raw_decode(cls, b: BytesIO) -> Sender:
+    def raw_decode(cls, f: BytesIO) -> Sender:
         """Decode (raw) a `Sender` from the encoded bytes"""
-        prev_tx_hash = _assert_read(b, 32)
-        prev_tx_idx = int.from_bytes(_assert_read(b, 4), byteorder="little")
-        len_of_next_two = raw_decode_varint(b)
-        signature = _assert_read(b, len_of_next_two - 88)
-        public_key = _decode_public_key(_assert_read(b, 88))
+        prev_tx_hash = _assert_read(f, 32)
+        prev_tx_idx = int.from_bytes(_assert_read(f, 4), byteorder="little")
+        len_of_next_two = raw_decode_varint(f)
+        signature = _assert_read(f, len_of_next_two - 88)
+        public_key = _decode_public_key(_assert_read(f, 88))
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
@@ -237,19 +237,19 @@ class Receiver:
     @classmethod
     def decode(cls, b: bytes) -> Receiver:
         """Decode a `Receiver` from the encoded bytes"""
-        d = BytesIO(b)
-        sender = cls.raw_decode(d)
-        if d.read(1):
-            # have already parsed, but there are still things after it
-            raise DecodeError("Extra data")
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
         return sender
 
     @classmethod
-    def raw_decode(cls, b: BytesIO) -> Receiver:
+    def raw_decode(cls, f: BytesIO) -> Receiver:
         """Decode (raw) a `Receiver` from the encoded bytes"""
-        amount = int.from_bytes(_assert_read(b, 8), byteorder="little")
-        len_of_public_key = raw_decode_varint(b)
-        public_key = _decode_public_key(_assert_read(b, len_of_public_key))
+        amount = int.from_bytes(_assert_read(f, 8), byteorder="little")
+        len_of_public_key = raw_decode_varint(f)
+        public_key = _decode_public_key(_assert_read(f, len_of_public_key))
         return cls(amount, public_key)
 
 
@@ -304,21 +304,21 @@ class Transaction:
     @classmethod
     def decode(cls, b: bytes) -> Transaction:
         """Decode a `Transaction` from the encoded bytes"""
-        d = BytesIO(b)
-        sender = cls.raw_decode(d)
-        if d.read(1):
-            # have already parsed, but there are still things after it
-            raise DecodeError("Extra data")
+        with BytesIO(b) as f:
+            sender = cls.raw_decode(f)
+            if f.read(1):
+                # have already parsed, but there are still things after it
+                raise DecodeError("Extra data")
         return sender
 
     @classmethod
-    def raw_decode(cls, b: BytesIO) -> Transaction:
+    def raw_decode(cls, f: BytesIO) -> Transaction:
         """Decode (raw) a `Receiver` from the encoded bytes"""
-        _version_number = int.from_bytes(_assert_read(b, 4), byteorder="little")
+        _version_number = int.from_bytes(_assert_read(f, 4), byteorder="little")
         assert _version_number == 1, "version number is unused but should be 1"
 
-        n_senders = raw_decode_varint(b)
-        senders = [Sender.raw_decode(b) for _ in range(n_senders)]
-        n_receivers = raw_decode_varint(b)
-        receivers = [Receiver.raw_decode(b) for _ in range(n_receivers)]
+        n_senders = raw_decode_varint(f)
+        senders = [Sender.raw_decode(f) for _ in range(n_senders)]
+        n_receivers = raw_decode_varint(f)
+        receivers = [Receiver.raw_decode(f) for _ in range(n_receivers)]
         return cls(senders, receivers)
