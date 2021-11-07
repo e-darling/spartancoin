@@ -284,6 +284,11 @@ class Transaction:
     senders: Collection[Sender]
     receivers: Collection[Receiver]
 
+    def __eq__(self, other):
+        if not isinstance(other, Transaction):
+            return NotImplemented
+        return self.senders == other.senders and self.receivers == other.receivers
+
     def encode(self) -> bytes:
         """Serialize the transaction"""
         return b"".join(
