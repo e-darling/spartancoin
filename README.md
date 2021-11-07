@@ -1,5 +1,8 @@
 # Spartancoin
-Proof of concept of Bitcoin's proof-of-work with SHA-512
+Proof of concept of Bitcoin's proof-of-work with SHA-512.
+
+For public and private keys, Bitcoin uses SECP256K1 for its EC curve.
+
 
 ## Setup and Installation
 You need Python 3.7 or later.
