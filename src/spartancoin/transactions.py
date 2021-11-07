@@ -1,7 +1,6 @@
 """
-This module handles transactions
+This module handles transactions.
 
-Bitcoin uses ec.SECP256K1 for its EC curve.
 """
 
 from __future__ import annotations
