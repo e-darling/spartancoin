@@ -1,15 +1,16 @@
 
 from __future__ import annotations
 
+import threading, queue
+
 from dataclasses import dataclass
-from typing import cast, Collection
+from io import BytesIO
+from typing import cast, Collection, Sequence
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from .exceptions import DecodeError
-
-import threading, queue
 
 """
 Timestamper
@@ -28,11 +29,17 @@ class Timestamper:
     """
         Private method to actually do the timestamping
     """
-    def __timestamp__(self, m_transaction):
+    def __timestamp_256__(self, m_transaction):
+        """
+            Grab the hash from the previous transaction
+            Grab an epoch tinestamp
+            Hash the two together using SHA-512
+            Publish the new hash... somewhere
+        """
         pass
 
     """
-        Grab 
+        Grab the hashes from the storage
     """
     def get_transaction_hashes(self):
         pass
