@@ -16,6 +16,7 @@ from spartancoin.transactions import (
     encode_varint,
     Receiver,
     Sender,
+    Transaction,
 )
 
 
@@ -84,7 +85,7 @@ class TestVarInt:
         """
         Invalid encodings should raise.
         """
-        with pytest.raises(ValueError):
+        with pytest.raises(DecodeError):
             decode_varint(b)
 
 
@@ -133,16 +134,19 @@ class TestTx:
     def test_encode_decode(tx) -> None:
         """Test encoding and decoding are inverses"""
         encoded = tx.encode()
-        decoded = Sender.from_bytes(encoded)
+        decoded = Sender.decode(encoded)
         assert decoded == tx
+
+    @staticmethod
+    def test_decode_cut_short() -> None:
+        """Test decoding things too short raises"""
+        with pytest.raises(DecodeError) as excinfo:
+            Sender.decode(b"-")
+        assert "Expecting length 32" in excinfo.value.args
 
     @staticmethod
     def test_decode_raises() -> None:
         """Test decoding invalid representations raise"""
-        with pytest.raises(DecodeError) as excinfo:
-            Sender.from_bytes(b"-")
-        assert "invalid length" in excinfo.value.args
-
         encoded = (
             b"\xe4\xf1<\x9em\xf4\xe4f\x1a\x8e\xe0\x8a\x89\xe3\x0e\xc8|\xbeia\xb9"
             b"\xcc\xfe\xfc\xbe\xb9H+\x8e\x17\xfb\xd8\xedv\xc3\xc5\x9c\xf7kTO\xf8"
@@ -154,13 +158,13 @@ class TestTx:
             b"\xbb\xfb\xe8%\xa7\x91\x84\x05\xdd)$l\xce\xb7\x0b\xcd\xcc\xe1\xdd"
             b"\xbcS\xd70O\xcc~\xd1\x97s\x8d\xde\xe8$\xb2`\xef\x0f\xec\xaf\x90"
         )
-        assert Sender.from_bytes(encoded)
+        assert Sender.decode(encoded)
         with pytest.raises(DecodeError) as excinfo:
-            Sender.from_bytes(encoded + b"-")
-        assert "invalid length" in excinfo.value.args
+            Sender.decode(encoded + b"-")
+        assert "Extra data" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
-            Sender.from_bytes(encoded[:-1])
-        assert "invalid length" in excinfo.value.args
+            Sender.decode(encoded[:-1])
+        assert "Expecting length 88" in excinfo.value.args
 
 
 class TestRx:
@@ -177,29 +181,79 @@ class TestRx:
     def test_encode_decode(rx) -> None:
         """Test encoding and decoding are inverses"""
         encoded = rx.encode()
-        decoded = Receiver.from_bytes(encoded)
+        decoded = Receiver.decode(encoded)
         assert decoded == rx
+
+    @staticmethod
+    def test_decode_cut_short() -> None:
+        """Test decoding things too short raise"""
+        # short amount
+        with pytest.raises(DecodeError) as excinfo:
+            Receiver.decode(8 * b"-" + 3 * b"\xff")
+        assert "Expecting length 8" in excinfo.value.args
+        # short varint
+        with pytest.raises(DecodeError) as excinfo:
+            Receiver.decode(8 * b"-" + 3 * b"\xfe")
+        assert "Expecting length 4" in excinfo.value.args
+        # short public key
+        with pytest.raises(DecodeError) as excinfo:
+            Receiver.decode(8 * b"-" + b"\x05" + b"\x00")
+        assert "Expecting length 5" in excinfo.value.args
 
     @staticmethod
     def test_decode_raises() -> None:
         """Test decoding invalid representations raise"""
-        with pytest.raises(DecodeError) as excinfo:
-            Receiver.from_bytes(8 * b"-" + 3 * b"\xff")
-        assert "invalid varint" in excinfo.value.args
-        with pytest.raises(DecodeError) as excinfo:
-            Receiver.from_bytes(b"-")
-        assert "invalid length" in excinfo.value.args
-
         encoded = (
             b"+\x00\x00\x00\x00\x00\x00\x00X0V0\x10\x06\x07*\x86H\xce=\x02\x01"
             b"\x06\x05+\x81\x04\x00\n\x03B\x00\x04\rp\xad\xdc\xa7\x88\xc9#0\xad"
             b"Jd \xf1J+FW\x81sg\xc4U\xe6\x19\xadwF8\x94\x0fcM>!\xd3\xed\x96\xf0"
             b"\x9e\xae\x1eKF\x0e\xc7\r\x9d\x1e\xf2PoPiv\xb9.\\i\x84\x94\xf4Q\x1f"
         )
-        assert Receiver.from_bytes(encoded)
+        assert Receiver.decode(encoded)
         with pytest.raises(DecodeError) as excinfo:
-            Receiver.from_bytes(encoded + b"-")
-        assert "invalid length" in excinfo.value.args
+            Receiver.decode(encoded + b"-")
+        assert "Extra data" in excinfo.value.args
         with pytest.raises(DecodeError) as excinfo:
-            Receiver.from_bytes(encoded[:-1])
-        assert "invalid length" in excinfo.value.args
+            Receiver.decode(encoded[:-1])
+        assert "Expecting length 88" in excinfo.value.args
+
+
+class TestTransaction:
+    """Test the `Transaction` class"""
+
+    @staticmethod
+    def test_encode_decode() -> None:
+        """Test decoding invalid representations raise"""
+        encoded = (
+            b"\x01\x00\x00\x00\x021234567890qwertyuiopasdfghjkl;zx\x03\x00\x00"
+            b"\x00\xa00F\x02!\x00\xaeY\x94\xd1\xd0\xc12g\xb1\xa9\xfb\x06\xe8"
+            b"E(\x15Aw\xedb\xde\x0bd\x06\xf7\x05\xbf7%aY,\x02!\x00\xb6."
+            b"\xe4d\"\xc1e1\x00\x17\x93\x98\xb5zt\xfa$3\xdc\xbd\x19l'G\xbf\xb5"
+            b"\xc7\xa26\t;\xd50V0\x10\x06\x07*\x86H\xce=\x02\x01\x06"
+            b"\x05+\x81\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22\x82\xa6+"
+            b"\x18_W\xdfW9\xc4U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11sR\xadiR9\xa2"
+            b"\nu\xe4\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3\x0e\xb4\xa1"
+            b"t\xa2\xc8px\\4]\xb0{0987654321qwertyuiopasdfghjkl;zx\x03\x00"
+            b"\x00\x00\x9e0D\x02 eY\xb8P\x01\xf7\t\xb0w\xe4\xda}s\xaa1%\n"
+            b"(\x11\x95Xy\x1e\x99\x87\x0c\x10\x1d(#%\xf7\x02  \xb4a"
+            b"R\xc2\x98\x16\xf3\xf0\x16\x0f}\xb4\x91N\xc8\x87\x19\\\x06\xc6rk"
+            b"\xf0\th\x10\xbe\xe1x\xeb\xf80V0\x10\x06\x07*\x86H\xce="
+            b"\x02\x01\x06\x05+\x81\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22"
+            b"\x82\xa6+\x18_W\xdfW9\xc4U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11"
+            b"sR\xadiR9\xa2\nu\xe4\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3"
+            b"\x0e\xb4\xa1t\xa2\xc8px\\4]\xb0{\x01\t\x00\x00\x00\x00\x00"
+            b"\x00\x00X0V0\x10\x06\x07*\x86H\xce=\x02\x01\x06\x05+\x81"
+            b"\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22\x82\xa6+\x18_W\xdfW9\xc4"
+            b"U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11sR\xadiR9\xa2\nu\xe4"
+            b"\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3\x0e\xb4\xa1t\xa2\xc8px\\4"
+            b"]\xb0{"
+        )
+        t = Transaction.decode(encoded)
+
+        assert len(t.senders) == 2
+        assert t.senders[0].prev_tx_idx == t.senders[1].prev_tx_idx == 3
+        assert len(t.receivers) == 1
+        assert t.receivers[0].amount == 9
+
+        assert t.encode() == encoded
+        assert Transaction.decode(t.encode()) == t
