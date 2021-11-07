@@ -1,10 +1,11 @@
 """
 This module handles transactions.
 
-The naming conventions for `decode` and `raw_decode` functions are that `decode`
-functions take `bytes` objects expecting a single object while `raw_decode`
-takes `BytesIO` objects take from the stream as they parse, possibly leaving
-extra characters in the stream.
+The naming conventions for `decode` and `raw_decode` functions are that:
+- `decode` functions take `bytes` objects expecting a single object
+- `raw_decode` takes `BytesIO` objects may have extraneous data at the end
+  and will only take from the stream as much as they need to parse the next
+  object, leaving the extraneous characters in the stream
 """
 
 from __future__ import annotations
