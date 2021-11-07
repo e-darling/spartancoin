@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
-from typing import cast, Collection
+from typing import cast, Sequence
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -291,8 +291,8 @@ class Transaction:
         list of outputs                   | varies
     """
 
-    senders: Collection[Sender]
-    receivers: Collection[Receiver]
+    senders: Sequence[Sender]
+    receivers: Sequence[Receiver]
 
     def __eq__(self, other):
         if not isinstance(other, Transaction):
