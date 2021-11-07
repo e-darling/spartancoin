@@ -295,3 +295,25 @@ class Transaction:
                 *[rx.encode() for rx in self.receivers],
             ]
         )
+
+    @classmethod
+    def decode(cls, b: bytes) -> Transaction:
+        """Decode a `Transaction` from the encoded bytes"""
+        d = BytesIO(b)
+        sender = cls.raw_decode(d)
+        if d.read(1):
+            # have already parsed, but there are still things after it
+            raise DecodeError("Extra data")
+        return sender
+
+    @classmethod
+    def raw_decode(cls, b: BytesIO) -> Transaction:
+        """Decode (raw) a `Receiver` from the encoded bytes"""
+        _version_number = int.from_bytes(_assert_read(b, 4), byteorder="little")
+        assert _version_number == 1, "version number is unused but should be 1"
+
+        n_senders = raw_decode_varint(b)
+        senders = [Sender.raw_decode(b) for _ in range(n_senders)]
+        n_receivers = raw_decode_varint(b)
+        receivers = [Receiver.raw_decode(b) for _ in range(n_receivers)]
+        return cls(senders, receivers)
