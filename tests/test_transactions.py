@@ -84,7 +84,7 @@ class TestVarInt:
         """
         Invalid encodings should raise.
         """
-        with pytest.raises(ValueError):
+        with pytest.raises(DecodeError):
             decode_varint(b)
 
 

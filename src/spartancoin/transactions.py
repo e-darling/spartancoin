@@ -10,6 +10,7 @@ extra characters in the stream.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from typing import cast, Collection
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -19,9 +20,14 @@ from .exceptions import DecodeError
 
 
 def encode_varint(i: int) -> bytes:
-    """
+    r"""
     Encode a variable-length integer in little endian as per
     https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> encode_varint(252)
+    b'\xfc'
+    >>> encode_varint(255)
+    b'\xfd\xff\x00'
     """
     if i < 0:
         raise ValueError(f"invalid: {i!r}")
@@ -36,29 +42,53 @@ def encode_varint(i: int) -> bytes:
     raise ValueError(f"invalid: {i!r}")
 
 
-def _assert_is_len(b: bytes, n: int) -> None:
-    if len(b) != n:
-        raise ValueError(f"Expecting length {n:d}")
+def _assert_read(b: BytesIO, n: int) -> bytes:
+    """Read and assert length"""
+    d = b.read(n)
+    if len(d) != n:
+        raise DecodeError(f"Expecting length {n:d}")
+    return d
 
 
 def decode_varint(b: bytes) -> int:
-    """
+    r"""
     Decode a variable-length integer in little endian as per
     https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> decode_varint(b"\xfc")
+    252
+    >>> decode_varint(b"\xfd\xff\x00")
+    255
     """
-    if not b:
-        raise ValueError("empty bytes")
-    sentinel = b[0]
-    if sentinel < 0xFD:
-        _assert_is_len(b, 1)
-        return int.from_bytes(b, byteorder="little")
-    if sentinel == 0xFD:
-        _assert_is_len(b[1:], 2)
-    elif sentinel == 0xFE:
-        _assert_is_len(b[1:], 4)
-    else:  # sentinel == 0xFF:
-        _assert_is_len(b[1:], 8)
-    return int.from_bytes(b[1:], byteorder="little")
+    d = BytesIO(b)
+    n = raw_decode_varint(d)
+    if d.read(1):
+        # have already parsed the varint, but there are still things after it
+        raise DecodeError("Extra data")
+    return n
+
+
+def raw_decode_varint(b: BytesIO) -> int:
+    r"""
+    Decode (raw) a variable-length integer in little endian as per
+    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
+
+    >>> b = BytesIO(b"\xfc\xff")
+    >>> raw_decode_varint(b)
+    252
+    >>> b.read()
+    b'\xff'
+    """
+    sentinel = _assert_read(b, 1)
+    if sentinel < b"\xFD":
+        return int.from_bytes(sentinel, byteorder="little")
+    if sentinel == b"\xFD":
+        d = _assert_read(b, 2)
+    elif sentinel == b"\xFE":
+        d = _assert_read(b, 4)
+    else:  # sentinel == b"\xFF":
+        d = _assert_read(b, 8)
+    return int.from_bytes(d, byteorder="little")
 
 
 def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
