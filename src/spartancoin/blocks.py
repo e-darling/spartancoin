@@ -17,7 +17,7 @@ def hash_args(*args: Sequence[bytes]):
     """
     Function to hash an entire list of bytes into one hash
 
-    Currently double-hashed SHA-512
+    Currently double-hashes SHA-512
     """
     full_bytes = b"0"
     for arg in args:
@@ -47,7 +47,8 @@ def get_difficulty(diff_index: bytes):
     pos = intified >> 24
     lower_24 = intified & 0xFF_FFFF
     limit = lower_24 * 2 ** (8 * (pos - 3))
-    return limit.to_bytes(length=32, byteorder="little")
+    limit = limit << 256  # shift left 256 bytes for SHA-512 testing purposes
+    return limit.to_bytes(length=64, byteorder="little")
 
 
 @dataclass
@@ -58,11 +59,12 @@ class Block:
     Information derived from
     https://www.oreilly.com/library/view/mastering-bitcoin/9781491902639/ch07.html
 
+    Adjusted to fit SHA-512's 512-bit output
     Block structure:
         Field                                    | Size
         -------------------------------------------------------------------------
         Block size                               | 4 bytes
-        Block header                             | 80 bytes
+        Block header                             | 144 bytes
         Transaction counter                      | 1 to 9 bytes VarInt
         Transaction                              | variable
 
@@ -71,14 +73,14 @@ class Block:
         Field                                    | Size
         -------------------------------------------------------------------------
         Version                                  | 4 bytes
-        Previous block hash                      | 32 bytes
-        Merkle root                              | 32 bytes
+        Previous block hash                      | 64 bytes
+        Merkle root                              | 64 bytes
         Timestamp                                | 4 bytes
         Difficulty index                         | 4 bytes
         Nonce                                    | 4 bytes
     """
 
-    block_size: int
+    block_size: int  # TBD
     # BLOCK HEADER
     version: int
     prev_block_hash: bytes
@@ -87,12 +89,14 @@ class Block:
     difficulty: bytes
     nonce: int
     # END BLOCK HEADER
-    transaction_counter: int
+    transaction_counter: int  # TBD
     transactions: Sequence[spartan_transactions.Transaction]
 
     def hash(self) -> bytes:
         """
         Hash the entire block header as proof that these transactions happened
+
+        @returns a double-SHA-512 hash of this block
         """
         # generate random nonce
         # get difficulty rating
@@ -100,28 +104,37 @@ class Block:
         # get merkle root hash
         # get version
         self.nonce = 0
-        """
-        self.timestamp = int(time.time())  # epoch time
-        self.__hash_merkle__()
-        whole_hash = hash_args(
-            self.version,
-            self.prev_block_hash,
-            self.merkle_root,
-            self.timestamp,
-            self.difficulty,
-            self.nonce,
-        )
-        return whole_hash
-        """
-        # TODO: loop through the nonce until you get a nonce that is below the difficulty target
         temp_difficulty = get_difficulty(self.difficulty)
         # the generated hash must be lower than this difficulty
-        pass
+        under_limit = False
+        whole_hash = b"0"
+
+        # keep making a new hash until it meets the difficulty requirement
+        while under_limit == False:
+            self.timestamp = int(time.time())  # epoch time
+            self.__hash_merkle__()
+            whole_hash = hash_args(
+                self.version,
+                self.prev_block_hash,
+                self.merkle_root,
+                self.timestamp,
+                self.difficulty,
+                self.nonce,
+            )
+            # hash according to the order of the fields
+            self.nonce += 1
+            if int.to_bytes(whole_hash, byteorder="little") > int.to_bytes(
+                temp_difficulty, byteorder="big"
+            ):
+                # if hash is numerically lower than the difficulty index, this hash has enough zeroes to go through the proof of work
+                break
+
+        return whole_hash
 
     def __hash_merkle__(self):
         """
         Compute the Merkle Root (binary hash) of every transaction in the block
-        using SHA-512
+        using double-SHA-512
         """
         # Hash every transaction individually first then add them to a list
         hashed_transactions = []

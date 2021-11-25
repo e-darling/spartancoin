@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import threading, queue
@@ -12,42 +11,40 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from .exceptions import DecodeError
 
+import time
+
+import spartancoin.transactions as transactions
+
+import hashlib
+
+
 def MAX_FUTURE_BLOCK_TIME():
     """
-        Fake constant that represents 2 hours in seconds
-        According to https://en.bitcoin.it/wiki/Block_timestamp
-        
+    Fake constant that represents 2 hours in seconds to be used with the 2 rules in
+    https://en.bitcoin.it/wiki/Block_timestamp
+
     """
-    return 2*60*60
+    return 2 * 60 * 60
+
 
 class Timestamper:
     """
-        Gives a transaction a timestamp, then hashes its hash to make a new hash
+    Performs the necessary hashing calculations to hash a block
     """
+
     transaction_queue = queue.Queue()
 
-    def enqueue_transaction(self, m_transaction):
+    def enqueue_block(self, m_transaction):
         """
-            Add transaction to queue for the server to work on when it gets time
+        Add block to queue for the server to work on when it gets time
         """
-        # 
+        #
         pass
 
-    def __timestamp_512__(self, m_transaction):
+    def __timestamp__(self, m_transaction):
         """
-            Private method to actually do the timestamping
+        Private method to actually do the timestamping
         """
-        # Grab the hash from the previous transaction
-        # Grab an epoch timestamp
-        # Hash the two together using SHA-512
-        # "Broadcast" the hash (fake this by adding it to a singular database)
-        # Timestamp has to be greater than the
-        #   timestamp from 6 transactions ago 
-        pass
 
-    def get_transaction_hashes(self):
-        """
-            Grab the hashes from the storage
-        """
+        # time_bytes = int(time.time()).to_bytes(8, byteorder="little")
         pass
-
