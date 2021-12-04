@@ -66,6 +66,25 @@ def faster_hash_args(*args: bytes) -> bytes:
 #     return limit.to_bytes(length=64, byteorder="little")
 
 
+def count_leading_0s(b: bytes) -> int:
+    r"""
+    Return the number of leading 0s in a bytestring
+
+    >>> count_leading_0s(b"\x00\x00\x00")
+    3
+    >>> count_leading_0s(b"\x00\x00\x00\x01\x02")
+    3
+    >>> count_leading_0s(b"\x01\x02")
+    0
+    >>> count_leading_0s(b"\x00\x02\x01\x02")
+    1
+    """
+    i = 0
+    while i < len(b) and b[i] == 0:
+        i += 1
+    return i
+
+
 @dataclass
 class Block:
     """
@@ -95,6 +114,8 @@ class Block:
         Nonce                                    | 4 bytes
     """
 
+    hash_algorithm = hashlib.sha256
+
     prev_block_hash: bytes
     transactions: Sequence[Transaction]
 
@@ -102,6 +123,15 @@ class Block:
         """Generate a Merke Root from the input transactions"""
         self.merkle_root = self.__hash_merkle()
         self.timestamp = int(time.time())  # epoch time
+
+    @classmethod
+    def _hash(cls, *bs: bytes) -> bytes:
+        """
+        Hash using the class's hashing algorithm.
+        """
+        full_bytes = b"".join(bs)
+        new_hash = cls.hash_algorithm(full_bytes)
+        return new_hash.digest()
 
     def __hash_merkle(self) -> bytes:
         """
@@ -113,7 +143,7 @@ class Block:
         for tran in self.transactions:
             # hash transaction
             tran_bytes = tran.encode()
-            new_hash = hash_args(tran_bytes)
+            new_hash = self._hash(tran_bytes)
             # add to temporary hashed transaction list
             hashed_transactions.append(new_hash)
 
@@ -123,13 +153,13 @@ class Block:
             counter = 0
             temp_transactions = []
             while counter < ((num_transactions // 2) * 2):
-                pair_hash = hash_args(
+                pair_hash = self._hash(
                     hashed_transactions[counter], hashed_transactions[counter + 1]
                 )
                 temp_transactions.append(pair_hash)
                 counter += 2
             if num_transactions % 2 == 1 and num_transactions > 1:
-                lonely_hash = hash_args(hashed_transactions[counter])
+                lonely_hash = self._hash(hashed_transactions[counter])
                 temp_transactions.append(lonely_hash)
             hashed_transactions = temp_transactions
             num_transactions = len(hashed_transactions)
@@ -155,12 +185,11 @@ class Block:
 
         # keep making a new hash until it meets the difficulty requirement
         while True:
-            whole_hash = hash_args(
-                b"\x01\x00\x00\x00",  # version=1
+            whole_hash = self._hash(
+                b"\x01\x00\x00\x00",
                 self.prev_block_hash,
                 self.merkle_root,
                 self.timestamp.to_bytes(4, byteorder="little"),
-                # self.difficulty,
                 self.nonce.to_bytes(4, byteorder="little"),
             )
             # hash according to the order of the fields
@@ -174,20 +203,11 @@ class Block:
             self.nonce += 1
 
 
-def count_leading_0s(b: bytes) -> int:
-    r"""
-    Return the number of leading 0s in a bytestring
+class BlockSHA256(Block):
+    """A block of transitions which hashes using SHA-256"""
 
-    >>> count_leading_0s(b"\x00\x00\x00")
-    3
-    >>> count_leading_0s(b"\x00\x00\x00\x01\x02")
-    3
-    >>> count_leading_0s(b"\x01\x02")
-    0
-    >>> count_leading_0s(b"\x00\x02\x01\x02")
-    1
-    """
-    i = 0
-    while i < len(b) and b[i] == 0:
-        i += 1
-    return i
+
+class BlockSHA512(Block):
+    """A block of transitions which hashes using SHA-512"""
+
+    hash_algorithm = hashlib.sha512
