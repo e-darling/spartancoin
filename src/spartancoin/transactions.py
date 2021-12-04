@@ -18,88 +18,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from .exceptions import DecodeError
-
-
-def encode_varint(i: int) -> bytes:
-    r"""
-    Encode a variable-length integer in little endian as per
-    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
-
-    >>> encode_varint(252)
-    b'\xfc'
-    >>> encode_varint(255)
-    b'\xfd\xff\x00'
-    """
-    if i < 0:
-        raise ValueError(f"invalid: {i!r}")
-    if i < 0xFD:
-        return i.to_bytes(1, byteorder="little")
-    if i <= 0xFFFF:
-        return b"\xFD" + i.to_bytes(2, byteorder="little")
-    if i <= 0xFFFF_FFFF:
-        return b"\xFE" + i.to_bytes(4, byteorder="little")
-    if i <= 0xFFFF_FFFF_FFFF_FFFF:
-        return b"\xFF" + i.to_bytes(8, byteorder="little")
-    raise ValueError(f"invalid: {i!r}")
-
-
-def _assert_read(f: BytesIO, n: int) -> bytes:
-    """
-    Read and assert length is as expected
-
-    >>> f = BytesIO(b"01")
-    >>> _assert_read(f, 1)
-    b'0'
-    >>> _assert_read(f, 2)
-    Traceback (most recent call last):
-      ...
-    spartancoin.exceptions.DecodeError: Expecting length 2
-    """
-    d = f.read(n)
-    if len(d) != n:
-        raise DecodeError(f"Expecting length {n:d}")
-    return d
-
-
-def decode_varint(b: bytes) -> int:
-    r"""
-    Decode a variable-length integer in little endian as per
-    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
-
-    >>> decode_varint(b"\xfc")
-    252
-    >>> decode_varint(b"\xfd\xff\x00")
-    255
-    """
-    with BytesIO(b) as f:
-        n = raw_decode_varint(f)
-        if f.read(1):
-            # have already parsed the varint, but there are still things after it
-            raise DecodeError("Extra data")
-    return n
-
-
-def raw_decode_varint(f: BytesIO) -> int:
-    r"""
-    Decode (raw) a variable-length integer in little endian as per
-    https://en.bitcoin.it/wiki/Protocol_documentation#Variable_length_integer
-
-    >>> b = BytesIO(b"\xfc\xff")
-    >>> raw_decode_varint(b)
-    252
-    >>> b.read()
-    b'\xff'
-    """
-    sentinel = _assert_read(f, 1)
-    if sentinel < b"\xFD":
-        return int.from_bytes(sentinel, byteorder="little")
-    if sentinel == b"\xFD":
-        d = _assert_read(f, 2)
-    elif sentinel == b"\xFE":
-        d = _assert_read(f, 4)
-    else:  # sentinel == b"\xFF":
-        d = _assert_read(f, 8)
-    return int.from_bytes(d, byteorder="little")
+from .util import assert_read, encode_varint, raw_decode_varint
 
 
 def _decode_public_key(b: bytes) -> ec.EllipticCurvePublicKey:
@@ -195,11 +114,11 @@ class Sender:
     @classmethod
     def raw_decode(cls, f: BytesIO) -> Sender:
         """Decode (raw) a `Sender` from the encoded bytes"""
-        prev_tx_hash = _assert_read(f, 32)
-        prev_tx_idx = int.from_bytes(_assert_read(f, 4), byteorder="little")
+        prev_tx_hash = assert_read(f, 32)
+        prev_tx_idx = int.from_bytes(assert_read(f, 4), byteorder="little")
         len_of_next_two = raw_decode_varint(f)
-        signature = _assert_read(f, len_of_next_two - 88)
-        public_key = _decode_public_key(_assert_read(f, 88))
+        signature = assert_read(f, len_of_next_two - 88)
+        public_key = _decode_public_key(assert_read(f, 88))
         return cls(prev_tx_hash, prev_tx_idx, signature, public_key)
 
 
@@ -258,9 +177,9 @@ class Receiver:
     @classmethod
     def raw_decode(cls, f: BytesIO) -> Receiver:
         """Decode (raw) a `Receiver` from the encoded bytes"""
-        amount = int.from_bytes(_assert_read(f, 8), byteorder="little")
+        amount = int.from_bytes(assert_read(f, 8), byteorder="little")
         len_of_public_key = raw_decode_varint(f)
-        public_key = _decode_public_key(_assert_read(f, len_of_public_key))
+        public_key = _decode_public_key(assert_read(f, len_of_public_key))
         return cls(amount, public_key)
 
 
@@ -325,7 +244,7 @@ class Transaction:
     @classmethod
     def raw_decode(cls, f: BytesIO) -> Transaction:
         """Decode (raw) a `Receiver` from the encoded bytes"""
-        _version_number = int.from_bytes(_assert_read(f, 4), byteorder="little")
+        _version_number = int.from_bytes(assert_read(f, 4), byteorder="little")
         assert _version_number == 1, "version number is unused but should be 1"
 
         n_senders = raw_decode_varint(f)
