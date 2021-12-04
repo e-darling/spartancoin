@@ -81,17 +81,13 @@ class Block:
         Nonce                                    | 4 bytes
     """
 
-    block_size: int  # TBD
-    # BLOCK HEADER
     prev_block_hash: bytes
-    merkle_root: bytes
-    difficulty: bytes
-    # END BLOCK HEADER
     transactions: Sequence[Transaction]
 
     def __post_init__(self) -> None:
         """Generate a Merke Root from the input transactions"""
         self.merkle_root = self.__hash_merkle()
+        self.timestamp = int(time.time())  # epoch time
 
     def __hash_merkle(self) -> bytes:
         """
@@ -145,7 +141,6 @@ class Block:
 
         # keep making a new hash until it meets the difficulty requirement
         while True:
-            self.timestamp = int(time.time())  # epoch time
             whole_hash = hash_args(
                 b"\x01\x00\x00\x00",  # version=1
                 self.prev_block_hash,
