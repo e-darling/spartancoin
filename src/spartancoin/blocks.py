@@ -1,19 +1,20 @@
+"""
+Create blocks of transactions
+"""
+
 from __future__ import annotations
-
-from dataclasses import dataclass
-from io import BytesIO
-from typing import cast, Collection, Sequence
-
-import spartancoin.transactions as spartan_transactions
 
 import hashlib
 import time
-import random
+from dataclasses import dataclass
+from typing import Sequence
+
+from .transactions import Transaction
 
 # TODO: Create a static genesis block
 
 
-def hash_args(*args: Sequence[bytes]):
+def hash_args(*args: bytes) -> bytes:
     """
     Function to hash an entire list of bytes into one hash
 
@@ -32,23 +33,23 @@ def hash_args(*args: Sequence[bytes]):
     return return_hash
 
 
-def get_difficulty(diff_index: bytes):
-    """
-    Gets the "number of leading zeroes" from the difficulty index
-    Specified by https://en.bitcoin.it/wiki/Difficulty
-
-    Packed Bits Format:
-    0x1b0404cb
-    <2 bytes exponential position> <6 bytes>
-
-    TODO: Make this work for SHA-512
-    """
-    intified = int.from_bytes(diff_index, byteorder="little")
-    pos = intified >> 24
-    lower_24 = intified & 0xFF_FFFF
-    limit = lower_24 * 2 ** (8 * (pos - 3))
-    limit = limit << 256  # shift left 256 bytes for SHA-512 testing purposes
-    return limit.to_bytes(length=64, byteorder="little")
+# def get_difficulty(diff_index: bytes):
+#     """
+#     Gets the "number of leading zeroes" from the difficulty index
+#     Specified by https://en.bitcoin.it/wiki/Difficulty
+#
+#     Packed Bits Format:
+#     0x1b0404cb
+#     <2 bytes exponential position> <6 bytes>
+#
+#     TODO: Make this work for SHA-512
+#     """
+#     intified = int.from_bytes(diff_index, byteorder="little")
+#     pos = intified >> 24
+#     lower_24 = intified & 0xFF_FFFF
+#     limit = lower_24 * 2 ** (8 * (pos - 3))
+#     limit = limit << 256  # shift left 256 bytes for SHA-512 testing purposes
+#     return limit.to_bytes(length=64, byteorder="little")
 
 
 @dataclass
@@ -82,56 +83,17 @@ class Block:
 
     block_size: int  # TBD
     # BLOCK HEADER
-    version: int
     prev_block_hash: bytes
     merkle_root: bytes
-    timestamp: bytes
     difficulty: bytes
-    nonce: int
     # END BLOCK HEADER
-    transaction_counter: int  # TBD
-    transactions: Sequence[spartan_transactions.Transaction]
+    transactions: Sequence[Transaction]
 
-    def hash(self) -> bytes:
-        """
-        Hash the entire block header as proof that these transactions happened
+    def __post_init__(self) -> None:
+        """Generate a Merke Root from the input transactions"""
+        self.merkle_root = self.__hash_merkle()
 
-        @returns a double-SHA-512 hash of this block
-        """
-        # generate random nonce
-        # get difficulty rating
-        # get timestamp
-        # get merkle root hash
-        # get version
-        self.nonce = 0
-        temp_difficulty = get_difficulty(self.difficulty)
-        # the generated hash must be lower than this difficulty
-        under_limit = False
-        whole_hash = b"0"
-
-        # keep making a new hash until it meets the difficulty requirement
-        while under_limit == False:
-            self.timestamp = int(time.time())  # epoch time
-            self.__hash_merkle__()
-            whole_hash = hash_args(
-                self.version,
-                self.prev_block_hash,
-                self.merkle_root,
-                self.timestamp,
-                self.difficulty,
-                self.nonce,
-            )
-            # hash according to the order of the fields
-            self.nonce += 1
-            if int.to_bytes(whole_hash, byteorder="little") > int.to_bytes(
-                temp_difficulty, byteorder="big"
-            ):
-                # if hash is numerically lower than the difficulty index, this hash has enough zeroes to go through the proof of work
-                break
-
-        return whole_hash
-
-    def __hash_merkle__(self):
+    def __hash_merkle(self) -> bytes:
         """
         Compute the Merkle Root (binary hash) of every transaction in the block
         using double-SHA-512
@@ -163,4 +125,60 @@ class Block:
             num_transactions = len(hashed_transactions)
         # at the end, there should only be one hash
         # assign the last remaining hash to merkle_root
-        self.merkle_root = hashed_transactions[0]
+        return hashed_transactions[0]
+
+    def hash(self) -> bytes:
+        """
+        Hash the entire block header as proof that these transactions happened
+
+        @returns a double-SHA-512 hash of this block
+        """
+        # generate random nonce
+        # get difficulty rating
+        # get timestamp
+        # get merkle root hash
+        # get version
+        self.nonce = 0
+        # temp_difficulty = get_difficulty(self.difficulty)
+        # the generated hash must be lower than this difficulty
+        whole_hash = b""
+
+        # keep making a new hash until it meets the difficulty requirement
+        while True:
+            self.timestamp = int(time.time())  # epoch time
+            whole_hash = hash_args(
+                b"\x01\x00\x00\x00",  # version=1
+                self.prev_block_hash,
+                self.merkle_root,
+                self.timestamp.to_bytes(4, byteorder="little"),
+                # self.difficulty,
+                self.nonce.to_bytes(4, byteorder="little"),
+            )
+            # hash according to the order of the fields
+            # if int.to_bytes(whole_hash, byteorder="little") > int.to_bytes(
+            #     temp_difficulty, byteorder="big"
+            # ):
+            #     # if hash is numerically lower than the difficulty index, this hash has enough zeroes to go through the proof of work
+            #     break
+            if count_leading_0s(whole_hash) > 2:
+                return whole_hash
+            self.nonce += 1
+
+
+def count_leading_0s(b: bytes) -> int:
+    r"""
+    Return the number of leading 0s in a bytestring
+
+    >>> count_leading_0s(b"\x00\x00\x00")
+    3
+    >>> count_leading_0s(b"\x00\x00\x00\x01\x02")
+    3
+    >>> count_leading_0s(b"\x01\x02")
+    0
+    >>> count_leading_0s(b"\x00\x02\x01\x02")
+    1
+    """
+    i = 0
+    while i < len(b) and b[i] == 0:
+        i += 1
+    return i
