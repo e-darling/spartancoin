@@ -162,38 +162,12 @@ class TestTransaction:
     """Test the `Transaction` class"""
 
     @staticmethod
-    def test_encode_decode() -> None:
+    def test_encode_decode(tran: Transaction) -> None:
         """Test decoding invalid representations raise"""
-        encoded = (
-            b"\x01\x00\x00\x00\x021234567890qwertyuiopasdfghjkl;zx\x03\x00\x00"
-            b"\x00\xa00F\x02!\x00\xaeY\x94\xd1\xd0\xc12g\xb1\xa9\xfb\x06\xe8"
-            b"E(\x15Aw\xedb\xde\x0bd\x06\xf7\x05\xbf7%aY,\x02!\x00\xb6."
-            b"\xe4d\"\xc1e1\x00\x17\x93\x98\xb5zt\xfa$3\xdc\xbd\x19l'G\xbf\xb5"
-            b"\xc7\xa26\t;\xd50V0\x10\x06\x07*\x86H\xce=\x02\x01\x06"
-            b"\x05+\x81\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22\x82\xa6+"
-            b"\x18_W\xdfW9\xc4U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11sR\xadiR9\xa2"
-            b"\nu\xe4\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3\x0e\xb4\xa1"
-            b"t\xa2\xc8px\\4]\xb0{0987654321qwertyuiopasdfghjkl;zx\x03\x00"
-            b"\x00\x00\x9e0D\x02 eY\xb8P\x01\xf7\t\xb0w\xe4\xda}s\xaa1%\n"
-            b"(\x11\x95Xy\x1e\x99\x87\x0c\x10\x1d(#%\xf7\x02  \xb4a"
-            b"R\xc2\x98\x16\xf3\xf0\x16\x0f}\xb4\x91N\xc8\x87\x19\\\x06\xc6rk"
-            b"\xf0\th\x10\xbe\xe1x\xeb\xf80V0\x10\x06\x07*\x86H\xce="
-            b"\x02\x01\x06\x05+\x81\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22"
-            b"\x82\xa6+\x18_W\xdfW9\xc4U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11"
-            b"sR\xadiR9\xa2\nu\xe4\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3"
-            b"\x0e\xb4\xa1t\xa2\xc8px\\4]\xb0{\x01\t\x00\x00\x00\x00\x00"
-            b"\x00\x00X0V0\x10\x06\x07*\x86H\xce=\x02\x01\x06\x05+\x81"
-            b"\x04\x00\n\x03B\x00\x04N\x9a\xae\xd2G22\x82\xa6+\x18_W\xdfW9\xc4"
-            b"U\xc4 \x97e-9=\xa1\xb7\x0bQ\x97\x11sR\xadiR9\xa2\nu\xe4"
-            b"\xb6<\xc8\xb3\xe8\x01\x9d\x8e\x01\xc3\x0e\xb4\xa1t\xa2\xc8px\\4"
-            b"]\xb0{"
-        )
-        t = Transaction.decode(encoded)
 
-        assert len(t.senders) == 2
-        assert t.senders[0].prev_tx_idx == t.senders[1].prev_tx_idx == 3
-        assert len(t.receivers) == 1
-        assert t.receivers[0].amount == 9
+        assert len(tran.senders) == 2
+        assert tran.senders[0].prev_tx_idx == tran.senders[1].prev_tx_idx == 3
+        assert len(tran.receivers) == 1
+        assert tran.receivers[0].amount == 9
 
-        assert t.encode() == encoded
-        assert Transaction.decode(t.encode()) == t
+        assert Transaction.decode(tran.encode()) == tran
