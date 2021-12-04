@@ -14,15 +14,15 @@ from .transactions import Transaction
 # TODO: Create a static genesis block
 
 
-def hash_args(*args: bytes) -> bytes:
+def better_hash_args(*args: bytes) -> bytes:
     """
-    Function to hash an entire list of bytes into one hash
+    Function to hash an entire list of bytes into one hash.
+    This is more similar to what bitcoin does, but is slower than
+    `faster_hash_args`. Bitcoin hashes twice for better security.
 
     Currently double-hashes SHA-512
     """
-    full_bytes = b"0"
-    for arg in args:
-        full_bytes += arg
+    full_bytes = b"".join(args)
 
     new_hash = hashlib.sha512()
     new_hash.update(full_bytes)
@@ -31,6 +31,20 @@ def hash_args(*args: bytes) -> bytes:
     new_hash2.update(return_hash)
     return_hash = new_hash2.digest()
     return return_hash
+
+
+def faster_hash_args(*args: bytes) -> bytes:
+    """
+    Function to hash an entire list of bytes into one hash.
+    This is faster than `better_hash_args` since it only hashes once.
+
+    Currently single-hashes SHA-512
+    """
+    full_bytes = b"".join(args)
+
+    new_hash = hashlib.sha512()
+    new_hash.update(full_bytes)
+    return new_hash.digest()
 
 
 # def get_difficulty(diff_index: bytes):
