@@ -53,8 +53,6 @@ def faster_hash_args(*args: bytes) -> bytes:
 #     Packed Bits Format:
 #     0x1b0404cb
 #     <2 bytes exponential position> <6 bytes>
-#
-#     TODO: Make this work for SHA-512
 #     """
 #     intified = int.from_bytes(diff_index, byteorder="little")
 #     pos = intified >> 24
