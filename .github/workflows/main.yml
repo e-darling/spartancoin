@@ -43,6 +43,10 @@ jobs:
       - name: mypy
         run: |
           mypy .
+      # otherwise get `ModuleNotFoundError: No module named 'spartancoin'`,
+      # see https://github.com/efxdoyle/spartancoin/runs/4423759146
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
       - name: pytest
         id: pytest
         uses: paolorechia/fast-pytest-github-action@v1.0
