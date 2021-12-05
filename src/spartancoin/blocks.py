@@ -212,6 +212,8 @@ class Block:
 class BlockSHA256(Block):
     """A block of transitions which hashes using SHA-256"""
 
+    hash_algorithm = hashlib.sha256
+
 
 class BlockSHA512(Block):
     """A block of transitions which hashes using SHA-512"""
