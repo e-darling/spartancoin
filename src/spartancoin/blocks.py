@@ -11,8 +11,6 @@ from typing import Sequence
 
 from .transactions import Transaction
 
-# TODO: Create a static genesis block
-
 
 def better_hash_args(*args: bytes) -> bytes:
     """
@@ -95,34 +93,36 @@ class Block:
 
     Adjusted to fit SHA-512's 512-bit output
     Block structure:
-        Field                                    | Size
-        -------------------------------------------------------------------------
-        Block size                               | 4 bytes
-        Block header                             | 144 bytes
-        Transaction counter                      | 1 to 9 bytes VarInt
-        Transaction                              | variable
+        Field                | Size
+        ------------------------------------------
+        Block size           | 4 bytes
+        Block header         | 144 bytes
+        Transaction counter  | 1 to 9 bytes VarInt
+        Transaction          | variable
 
     Block header structure:
     (note: this is the only part that is hashed to identify this block)
-        Field                                    | Size
-        -------------------------------------------------------------------------
-        Version                                  | 4 bytes
-        Previous block hash                      | 64 bytes
-        Merkle root                              | 64 bytes
-        Timestamp                                | 4 bytes
-        Difficulty index                         | 4 bytes
-        Nonce                                    | 4 bytes
+        Field                | Size
+        -------------------------------
+        Version              | 4 bytes
+        Previous block hash  | 64 bytes
+        Merkle root          | 64 bytes
+        Timestamp            | 4 bytes
+        Difficulty index     | 4 bytes
+        Nonce                | 4 bytes
     """
 
     hash_algorithm = hashlib.sha256
 
     prev_block_hash: bytes
     transactions: Sequence[Transaction]
+    difficulty: int = 1  # target number of bits
 
     def __post_init__(self) -> None:
         """Generate a Merke Root from the input transactions"""
         self.merkle_root = self.__hash_merkle()
         self.timestamp = int(time.time())  # epoch time
+        self.nonce = 0
 
     @classmethod
     def _hash(cls, *bs: bytes) -> bytes:
@@ -173,12 +173,10 @@ class Block:
 
         @returns a double-SHA-512 hash of this block
         """
-        # generate random nonce
         # get difficulty rating
         # get timestamp
         # get merkle root hash
         # get version
-        self.nonce = 0
         # temp_difficulty = get_difficulty(self.difficulty)
         # the generated hash must be lower than this difficulty
         whole_hash = b""
@@ -190,6 +188,7 @@ class Block:
                 self.prev_block_hash,
                 self.merkle_root,
                 self.timestamp.to_bytes(4, byteorder="little"),
+                # will raise `OverflowError` if `nonce` grows larger than 4 bytes
                 self.nonce.to_bytes(4, byteorder="little"),
             )
             # hash according to the order of the fields
