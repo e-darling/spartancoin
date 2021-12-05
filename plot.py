@@ -12,12 +12,12 @@ import pandas as pd
 pattern = re.compile(r"^a(\d+)n\d+d(\d+)\.pkl$")
 
 datasets = []
-for p in Path().glob("*.pkl"):
-    m = pattern.match(p.name)
+for _p in Path().glob("*.pkl"):
+    m = pattern.match(_p.name)
     if not m:
         continue
     algo, d = (int(s) for s in m.groups())
-    df = pd.read_pickle(p)
+    df = pd.read_pickle(_p)
     datasets.append((algo, d, df))
 
 # largest 256 + difficulty 15

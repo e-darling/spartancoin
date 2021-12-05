@@ -23,6 +23,8 @@ warn_unreachable = true
 [[tool.mypy.overrides]]
 module = [
     "setuptools.*",
+    "pandas.*",
+    "matplotlib.*",
 ]
 ignore_missing_imports = true
 

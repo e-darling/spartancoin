@@ -58,7 +58,7 @@ def rand_block_hash() -> bytes:
     return b"".join(bytes([b]) for b in random.choices(b"qwertyuiop", k=64))
 
 
-def main(Block: type[_Block], n: int, difficulty: int) -> None:
+def main(Block: type[_Block], n: int, difficulty: int) -> list[tuple[float, int]]:
     """Test can hash a block"""
     times_and_tries = []
     for i in range(n):
