@@ -64,23 +64,30 @@ def faster_hash_args(*args: bytes) -> bytes:
 #     return limit.to_bytes(length=64, byteorder="little")
 
 
-def count_leading_0s(b: bytes) -> int:
+def leading_0_bits(b: bytes) -> int:
     r"""
-    Return the number of leading 0s in a bytestring
+    Return the number of leading 0 *bit*s in a *byte*string
 
-    >>> count_leading_0s(b"\x00\x00\x00")
-    3
-    >>> count_leading_0s(b"\x00\x00\x00\x01\x02")
-    3
-    >>> count_leading_0s(b"\x01\x02")
+    >>> leading_0_bits(b"")
     0
-    >>> count_leading_0s(b"\x00\x02\x01\x02")
-    1
+    >>> leading_0_bits(b"\x00\x00")
+    16
+    >>> leading_0_bits(b"\x00\x00\xf1\x02")
+    16
+    >>> leading_0_bits(b"\x01\x02")
+    7
+    >>> leading_0_bits(b"\x00\x02\x01")
+    14
     """
     i = 0
     while i < len(b) and b[i] == 0:
         i += 1
-    return i
+    try:
+        # usual case is there are more bytes after where we stopped
+        return 8 * i + 8 - b[i].bit_length()
+    except IndexError:
+        # if the bytestring is entirely b"\x00", will reach the end
+        return 8 * i
 
 
 @dataclass
@@ -197,7 +204,7 @@ class Block:
             # ):
             #     # if hash is numerically lower than the difficulty index, this hash has enough zeroes to go through the proof of work
             #     break
-            if count_leading_0s(whole_hash) > 2:
+            if leading_0_bits(whole_hash) >= self.difficulty:
                 return whole_hash
             self.nonce += 1
 
