@@ -42,7 +42,7 @@ jobs:
           pylint src/spartancoin tests
       - name: mypy
         run: |
-          mypy -v .
+          mypy .
       - name: pytest
         id: pytest
         uses: paolorechia/fast-pytest-github-action@v1.0
